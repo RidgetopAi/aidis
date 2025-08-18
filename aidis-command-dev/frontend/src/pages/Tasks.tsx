@@ -3,7 +3,7 @@ import { Card, Row, Col, Tabs, Button, notification } from 'antd';
 import { PlusOutlined, BarChartOutlined, ProjectOutlined } from '@ant-design/icons';
 import useWebSocketSingleton from '../hooks/useWebSocketSingleton';
 import { apiService } from '../services/api';
-// TODO: Import actual components once they're fixed
+// TODO: Import remaining components once they're fixed
 // import TaskKanbanBoard from '../components/tasks/TaskKanbanBoard';
 import TaskList from '../components/tasks/TaskList';
 import TaskForm from '../components/tasks/TaskForm';
@@ -298,14 +298,23 @@ const Tasks: React.FC = () => {
               type="card"
             >
               <TabPane tab="Task List" key="list">
-                <TaskList
-                  tasks={tasks}
-                  loading={loading}
-                  onUpdateTask={handleUpdateTask}
-                  onDeleteTask={handleDeleteTask}
-                  projects={projects}
-                  agents={agents}
-                />
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <h3>Task Management System</h3>
+                  <p>Loading: {loading ? 'Yes' : 'No'}</p>
+                  <p>Tasks loaded: {tasks.length}</p>
+                  {tasks.length > 0 && (
+                    <div style={{ textAlign: 'left', marginTop: '20px' }}>
+                      <h4>Tasks:</h4>
+                      {tasks.map(task => (
+                        <Card key={task.id} size="small" style={{ marginBottom: '8px' }}>
+                          <div><strong>{task.title}</strong></div>
+                          <div>Status: {task.status} | Priority: {task.priority}</div>
+                          <div>{task.description}</div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </TabPane>
 
               <TabPane tab="Kanban Board" key="kanban">
