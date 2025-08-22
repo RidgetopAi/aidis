@@ -70,21 +70,48 @@ export class DecisionController {
       offset = 0
       } = req.query;
 
+      console.log('[Decision Search] Request params:', {
+        query, project_id, status, created_by, date_from, date_to, limit, offset
+      });
+
+      // Switch to the correct project context if project_id is provided
+      if (project_id) {
+        console.log(`[Decision Search] Switching to project: ${project_id}`);
+        const switchResult = await McpService.callTool('project_switch', { project: project_id as string });
+        if (!switchResult.success) {
+          console.error('Failed to switch project:', switchResult.error);
+          res.status(500).json({
+            success: false,
+            message: 'Failed to switch project context',
+            error: switchResult.error
+          });
+          return;
+        }
+        console.log('[Decision Search] Project switch successful');
+      }
+
       // Build search parameters for AIDIS MCP  
       const searchParams: any = {
-        query: query || "*", // Default to wildcard search if no query provided
+        query: query || "system", // Use a broad search term instead of "*"
         limit: parseInt(limit as string) || 20
       };
 
+      // Don't include project_id in MCP params since we switched context above
       if (status) searchParams.status = status;
-    if (project_id) searchParams.project_id = project_id;
-    if (created_by) searchParams.created_by = created_by;
-    if (date_from) searchParams.date_from = date_from;
-    if (date_to) searchParams.date_to = date_to;
+      if (created_by) searchParams.created_by = created_by;
+      if (date_from) searchParams.date_from = date_from;
+      if (date_to) searchParams.date_to = date_to;
+
+      console.log('[Decision Search] MCP search params:', searchParams);
 
       // Call AIDIS MCP decision_search
       const result = await McpService.callTool('decision_search', searchParams);
       
+      console.log('[Decision Search] MCP result success:', result.success);
+      if (result.success) {
+        console.log('[Decision Search] MCP data keys:', Object.keys(result.data || {}));
+      }
+
       if (!result.success) {
         console.error('AIDIS decision_search failed:', result.error);
         res.status(500).json({
@@ -104,6 +131,12 @@ export class DecisionController {
         page: Math.floor(parseInt(offset as string) / parseInt(limit as string)) + 1,
         limit: parseInt(limit as string)
       };
+
+      console.log('[Decision Search] Transformed result:', {
+        totalDecisions: transformedResult.decisions.length,
+        totalFound: transformedResult.total,
+        page: transformedResult.page
+      });
 
       res.json({
         success: true,

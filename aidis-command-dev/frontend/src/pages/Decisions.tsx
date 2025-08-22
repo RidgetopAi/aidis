@@ -9,6 +9,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import { useDecisionStore, useDecisionSearch, useDecisionSelection } from '../stores/decisionStore';
+import { useProjectContext } from '../contexts/ProjectContext';
 import { DecisionApi } from '../services/decisionApi';
 import DecisionCard from '../components/decisions/DecisionCard';
 import DecisionFilters from '../components/decisions/DecisionFilters';
@@ -41,6 +42,8 @@ const Decisions: React.FC = () => {
     clearSelection
   } = useDecisionStore();
 
+  const { currentProject } = useProjectContext();
+  
   const { 
     searchParams, 
     updateSearchParam, 
@@ -50,18 +53,23 @@ const Decisions: React.FC = () => {
   const decisionSelection = useDecisionSelection();
   const [showStatsModal, setShowStatsModal] = useState(false);
 
-  // Load decisions on component mount and when search params change
+  // Load decisions on component mount and when search params or project change
   useEffect(() => {
     loadDecisions();
     loadStats();
-  }, []);
+  }, [currentProject]); // Added currentProject dependency
 
   const loadDecisions = useCallback(async () => {
     setSearching(true);
     setError(null);
     
     try {
-      const result = await DecisionApi.searchDecisions(searchParams);
+      // Include current project in search params
+      const searchParamsWithProject = {
+        ...searchParams,
+        project_id: currentProject?.id
+      };
+      const result = await DecisionApi.searchDecisions(searchParamsWithProject);
       setSearchResults(result);
     } catch (err) {
       console.error('Failed to load decisions:', err);
@@ -70,7 +78,7 @@ const Decisions: React.FC = () => {
     } finally {
       setSearching(false);
     }
-  }, [searchParams, setSearchResults, setSearching, setError]);
+  }, [searchParams, currentProject, setSearchResults, setSearching, setError]);
 
   const loadStats = async () => {
     try {
