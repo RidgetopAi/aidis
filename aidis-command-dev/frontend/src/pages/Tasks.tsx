@@ -6,6 +6,7 @@ import { apiService } from '../services/api';
 // TODO: Import remaining components once they're fixed
 // import TaskKanbanBoard from '../components/tasks/TaskKanbanBoard';
 import TaskList from '../components/tasks/TaskList';
+import TaskCardList from '../components/tasks/TaskCardList';
 import TaskForm from '../components/tasks/TaskForm';
 // import TaskStats from '../components/tasks/TaskStats';
 // import TaskDependencyGraph from '../components/tasks/TaskDependencyGraph';
@@ -143,8 +144,8 @@ const Tasks: React.FC = () => {
     setLoading(true);
     try {
       const [projectsRes, agentsRes] = await Promise.all([
-        apiService.get<{data: {projects: Project[]}}> ('/projects'),
-        apiService.get<{data: {agents: Agent[]}}>('/agents')
+        apiService.get<{success: boolean; data: {projects: Project[]}}>('/projects'),
+        apiService.get<{success: boolean; data: {agents: Agent[]}}>('/agents')
       ]);
 
       setProjects(projectsRes.data.projects || []);
@@ -170,7 +171,7 @@ const Tasks: React.FC = () => {
     
     setLoading(true);
     try {
-      const response = await apiService.get<{data: {tasks: Task[]}}>('/tasks', {
+      const response = await apiService.get<{success: boolean; data: {tasks: Task[]}}>('/tasks', {
         params: { project_id: selectedProject }
       });
       setTasks(response.data.tasks || []);
@@ -188,7 +189,7 @@ const Tasks: React.FC = () => {
   const handleCreateTask = async (taskData: any) => {
     setCreating(true);
     try {
-      const response = await apiService.post<{data: {task: Task}}>('/tasks', {
+      const response = await apiService.post<{success: boolean; data: {task: Task}}>('/tasks', {
         ...taskData,
         project_id: selectedProject
       });
@@ -309,24 +310,26 @@ const Tasks: React.FC = () => {
               onChange={setActiveTab}
               type="card"
             >
-              <TabPane tab="Task List" key="list">
-                <div style={{ padding: '20px', textAlign: 'center' }}>
-                  <h3>Task Management System</h3>
-                  <p>Loading: {loading ? 'Yes' : 'No'}</p>
-                  <p>Tasks loaded: {tasks.length}</p>
-                  {tasks.length > 0 && (
-                    <div style={{ textAlign: 'left', marginTop: '20px' }}>
-                      <h4>Tasks:</h4>
-                      {tasks.map(task => (
-                        <Card key={task.id} size="small" style={{ marginBottom: '8px' }}>
-                          <div><strong>{task.title}</strong></div>
-                          <div>Status: {task.status} | Priority: {task.priority}</div>
-                          <div>{task.description}</div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <TabPane tab="Card View" key="list">
+                <TaskCardList
+                  tasks={tasks}
+                  loading={loading}
+                  onUpdateTask={handleUpdateTask}
+                  onDeleteTask={handleDeleteTask}
+                  projects={projects}
+                  agents={agents}
+                />
+              </TabPane>
+
+              <TabPane tab="Table View" key="table">
+                <TaskList
+                  tasks={tasks}
+                  loading={loading}
+                  onUpdateTask={handleUpdateTask}
+                  onDeleteTask={handleDeleteTask}
+                  projects={projects}
+                  agents={agents}
+                />
               </TabPane>
 
               <TabPane tab="Kanban Board" key="kanban">
