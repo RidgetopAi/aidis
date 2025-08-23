@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Tabs, Button, notification } from 'antd';
+import { Card, Row, Col, Tabs, Button, notification, Select } from 'antd';
 import { PlusOutlined, BarChartOutlined, ProjectOutlined } from '@ant-design/icons';
 import useWebSocketSingleton from '../hooks/useWebSocketSingleton';
 import { apiService } from '../services/api';
@@ -59,7 +59,7 @@ const Tasks: React.FC = () => {
 
   // WebSocket for real-time updates  
   const token = localStorage.getItem('aidis_token');
-  const backendPort = process.env.REACT_APP_BACKEND_PORT || '5000';
+  const backendPort = process.env.REACT_APP_BACKEND_PORT || '5001';
   const wsUrl = token ? `ws://localhost:${backendPort}/ws?token=${encodeURIComponent(token)}` : null;
   
   const { isConnected } = useWebSocketSingleton(wsUrl, {
@@ -126,7 +126,18 @@ const Tasks: React.FC = () => {
     if (projects.length > 0) {
       loadTasks();
     }
-  }, [selectedProject]);
+  }, [selectedProject, projects.length]);
+
+  // Cleanup effect for component unmounting
+  useEffect(() => {
+    return () => {
+      // Reset state on unmount to prevent stale state on revisit
+      setTasks([]);
+      setLoading(false);
+      setCreating(false);
+      setShowCreateForm(false);
+    };
+  }, []);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -274,18 +285,19 @@ const Tasks: React.FC = () => {
             {/* Project Selection */}
             <div style={{ marginBottom: '16px' }}>
               <label style={{ marginRight: '8px' }}>Project:</label>
-              <select 
-                value={selectedProject} 
-                onChange={(e) => setSelectedProject(e.target.value)}
-                style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #d9d9d9' }}
+              <Select
+                value={selectedProject || undefined}
+                placeholder="All Projects"
+                onChange={(value) => setSelectedProject(value || '')}
+                style={{ minWidth: '200px' }}
+                allowClear
               >
-                <option value="">All Projects</option>
                 {projects.map(project => (
-                  <option key={project.id} value={project.id}>
+                  <Select.Option key={project.id} value={project.id}>
                     {project.name}
-                  </option>
+                  </Select.Option>
                 ))}
-              </select>
+              </Select>
             </div>
           </Card>
         </Col>

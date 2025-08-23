@@ -1,12 +1,11 @@
-import { Response } from 'express';
-import { AuthenticatedRequest } from '../types/auth';
+import { Request, Response } from 'express';
 import { McpService } from '../services/mcp';
 
 export class DecisionController {
   /**
    * POST /api/decisions - Record new technical decision
    */
-  static async recordDecision(req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async recordDecision(req: Request, res: Response): Promise<void> {
     try {
       const { title, problem, decision, rationale, alternatives } = req.body;
 
@@ -57,7 +56,7 @@ export class DecisionController {
   /**
    * GET /api/decisions - Search technical decisions
    */
-  static async searchDecisions(req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async searchDecisions(req: Request, res: Response): Promise<void> {
     try {
       const {
       query = '',
@@ -157,7 +156,7 @@ export class DecisionController {
   /**
    * GET /api/decisions/stats - Get decision statistics
    */
-  static async getDecisionStats(req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async getDecisionStats(req: Request, res: Response): Promise<void> {
     try {
       const { project_id } = req.query;
 
@@ -195,7 +194,7 @@ export class DecisionController {
   /**
    * GET /api/decisions/:id - Get single decision
    */
-  static async getDecision(req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async getDecision(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -245,7 +244,7 @@ export class DecisionController {
   /**
    * PUT /api/decisions/:id - Update decision
    */
-  static async updateDecision(req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async updateDecision(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { outcome, lessons, status } = req.body;
@@ -296,7 +295,7 @@ export class DecisionController {
   /**
    * DELETE /api/decisions/:id - Delete decision
    */
-  static async deleteDecision(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async deleteDecision(_req: Request, res: Response): Promise<void> {
     try {
       // Note: AIDIS doesn't currently have a delete_decision MCP tool
       // For now, return not implemented

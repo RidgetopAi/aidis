@@ -196,7 +196,17 @@ export const useContextSearch = () => {
   };
   
   const clearFilters = () => {
-    store.setSearchParams(initialSearchParams);
+    store.setSearchParams({
+      ...initialSearchParams,
+      query: undefined,
+      project_id: undefined,
+      session_id: undefined,
+      type: undefined,
+      tags: undefined,
+      min_similarity: undefined,
+      date_from: undefined,
+      date_to: undefined
+    });
   };
   
   const updateSearchParam = <K extends keyof ContextSearchParams>(

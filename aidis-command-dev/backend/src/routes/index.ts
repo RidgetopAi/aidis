@@ -7,6 +7,7 @@ import sessionRoutes from './sessions';
 import agentRoutes from './agents';
 import taskRoutes from './tasks';
 import decisionRoutes from './decisions';
+import dashboardRoutes from './dashboard';
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use('/sessions', sessionRoutes);
 router.use('/agents', agentRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/decisions', decisionRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 export default router;
