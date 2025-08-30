@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Modal, Form, Input, Select, Button, Space, Typography, Alert, Divider, Card } from 'antd';
 import { 
   PlusOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
@@ -28,6 +28,8 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
   const [availabilityResult, setAvailabilityResult] = useState<{ available: boolean; conflicts?: any[] } | null>(null);
   const [suggestions, setSuggestions] = useState<NamingSuggestion[]>([]);
   const { currentProject } = useProjectContext();
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [currentName, setCurrentName] = useState<string>('');
 
   const typeOptions = [
     { label: 'Variable', value: 'variable' },
@@ -39,10 +41,11 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
     { label: 'File', value: 'file' },
   ];
 
-  const handleNameChange = async (name: string) => {
+  const checkNameAvailability = useCallback(async (name: string) => {
     if (!name || name.length < 2) {
       setAvailabilityResult(null);
       setSuggestions([]);
+      setCheckingAvailability(false);
       return;
     }
 
@@ -61,13 +64,52 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
       }
     } catch (err) {
       console.error('Failed to check name availability:', err);
+      setAvailabilityResult(null);
+      setSuggestions([]);
     } finally {
       setCheckingAvailability(false);
     }
-  };
+  }, []);
+
+  const handleNameChange = useCallback((name: string) => {
+    setCurrentName(name);
+    
+    // Clear previous timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    // Reset availability if name is too short
+    if (!name || name.length < 2) {
+      setAvailabilityResult(null);
+      setSuggestions([]);
+      setCheckingAvailability(false);
+      return;
+    }
+
+    // Debounce API call by 500ms
+    debounceTimeout.current = setTimeout(() => {
+      checkNameAvailability(name);
+    }, 500);
+  }, [checkNameAvailability]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (values: any) => {
     setLoading(true);
+    
+    // Clear debounce timeout during submission
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    
     try {
       const entry = await NamingApi.registerName({
         name: values.name.trim(),
@@ -76,8 +118,10 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
       });
       
       form.resetFields();
+      setCurrentName('');
       setAvailabilityResult(null);
       setSuggestions([]);
+      setCheckingAvailability(false);
       onComplete(entry);
     } catch (err) {
       console.error('Failed to register name:', err);
@@ -87,9 +131,16 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
   };
 
   const handleCancel = () => {
+    // Clear debounce timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    
     form.resetFields();
+    setCurrentName('');
     setAvailabilityResult(null);
     setSuggestions([]);
+    setCheckingAvailability(false);
     onClose();
   };
 
@@ -131,7 +182,15 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
           <Input
             placeholder="Enter the name to register"
             onChange={(e) => handleNameChange(e.target.value)}
-            suffix={checkingAvailability ? <BulbOutlined spin /> : null}
+            suffix={
+              <BulbOutlined 
+                spin={checkingAvailability} 
+                style={{ 
+                  color: checkingAvailability ? '#1890ff' : '#d9d9d9',
+                  transition: 'color 0.2s'
+                }} 
+              />
+            }
           />
         </Form.Item>
 

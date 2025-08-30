@@ -91,7 +91,7 @@ export class DecisionController {
 
       // Build search parameters for AIDIS MCP  
       const searchParams: any = {
-        query: query || "system", // Use a broad search term instead of "*"
+        query: query || "*", // Use "*" to show all decisions when no search query provided
         limit: parseInt(limit as string) || 20
       };
 

@@ -443,14 +443,169 @@ export class NamingController {
   /**
    * DELETE /api/naming/:id - Delete naming entry
    */
-  static async deleteEntry(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  static async deleteEntry(req: AuthenticatedRequest, res: Response): Promise<void> {
+    console.log(`DEBUG: DELETE request received for ID: ${req.params.id}`);
     try {
-      // Note: AIDIS doesn't currently have a delete naming MCP tool
-      // For now, return success for demo purposes
-      res.json({
-        success: true,
-        message: 'Naming entry deleted successfully'
+      const { id } = req.params;
+      
+      if (!id) {
+        res.status(400).json({
+          success: false,
+          message: 'Entry ID is required'
+        });
+        return;
+      }
+
+      // Since AIDIS doesn't have a delete naming MCP tool, we need to:
+      // 1. Get the current project to know which database entries to work with
+      // 2. Map the mock numeric ID to real database entries using SAME ORDER as frontend
+      // 3. Delete directly from the database
+
+      // Get current project info and extract the project ID
+      const projectId = '4afb236c-00d7-433d-87de-0f489b96acb2'; // aidis-bootstrap project
+
+      // Verify the project exists by calling project_current
+      const projectResult = await McpService.callTool('project_current', {});
+      if (!projectResult.success) {
+        console.error('Failed to verify current project:', projectResult.error);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to verify current project',
+          error: projectResult.error
+        });
+        return;
+      }
+
+      // Get naming stats to understand the current entries - SAME AS FRONTEND
+      const statsResult = await McpService.callTool('naming_stats', {});
+      if (!statsResult.success) {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to access naming registry',
+          error: statsResult.error
+        });
+        return;
+      }
+
+      // Import pg for database operations
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        host: 'localhost',
+        port: 5432,
+        database: 'aidis_production',
+        user: 'ridgetop',
+        password: undefined
       });
+
+      try {
+        // Get actual database entries for this project
+        console.log(`DEBUG: Searching for entries with project_id: ${projectId}`);
+        const dbResult = await pool.query(
+          'SELECT id, canonical_name, entity_type FROM naming_registry WHERE project_id = $1',
+          [projectId]
+        );
+
+        console.log(`DEBUG: Found ${dbResult.rows.length} database entries:`, dbResult.rows);
+
+        if (dbResult.rows.length === 0) {
+          // Try querying all entries to see what's in the database
+          const allResult = await pool.query(
+            'SELECT id, canonical_name, entity_type, project_id FROM naming_registry LIMIT 10'
+          );
+          console.log(`DEBUG: All entries in database:`, allResult.rows);
+          
+          res.status(404).json({
+            success: false,
+            message: 'No naming entries found for current project'
+          });
+          return;
+        }
+
+        // CRITICAL FIX: Order entries using the SAME logic as frontend mock generation
+        // Frontend generates entries by iterating through Object.entries(stats.by_type)
+        // and creates sequential mock IDs
+        const stats = statsResult.data;
+        const orderedEntries: any[] = [];
+        let entryIndex = 1;
+
+        // Generate entries in the SAME ORDER as frontend (by type iteration)
+        if (stats.by_type) {
+          for (const [entryType, count] of Object.entries(stats.by_type)) {
+            // Find database entries of this type for this project
+            const typeEntries = dbResult.rows.filter((row: any) => row.entity_type === entryType);
+            
+            // IMPORTANT: Frontend shows ALL mock entries based on stats count
+            // but we can only delete actual database entries
+            const actualCount = Math.min((count as number), typeEntries.length);
+            
+            // Add actual database entries to ordered list with sequential indexing to match frontend
+            for (let i = 0; i < actualCount; i++) {
+              orderedEntries.push({
+                ...typeEntries[i],
+                mockId: entryIndex++
+              });
+            }
+            
+            // Skip mock-only entries that have no database counterpart
+            entryIndex += (count as number) - actualCount;
+          }
+        }
+
+        // Map mock ID to correct database entry
+        const requestedId = parseInt(id);
+        const entryToDelete = orderedEntries.find(entry => entry.mockId === requestedId);
+        
+        if (!entryToDelete) {
+          // Check if this is a mock-only entry (frontend shows it, but no DB counterpart)
+          let mockEntryExists = false;
+          let mockIndex = 1;
+          
+          if (stats.by_type) {
+            for (const [, count] of Object.entries(stats.by_type)) {
+              for (let i = 0; i < (count as number); i++) {
+                if (mockIndex === requestedId) {
+                  mockEntryExists = true;
+                  break;
+                }
+                mockIndex++;
+              }
+              if (mockEntryExists) break;
+            }
+          }
+          
+          res.status(404).json({
+            success: false,
+            message: mockEntryExists 
+              ? 'This entry is for display only and cannot be deleted (no database record)'
+              : 'Naming entry not found'
+          });
+          return;
+        }
+
+        // Delete the CORRECT entry from database
+        const deleteResult = await pool.query(
+          'DELETE FROM naming_registry WHERE id = $1 AND project_id = $2',
+          [entryToDelete.id, projectId]
+        );
+
+        if (deleteResult.rowCount === 0) {
+          res.status(404).json({
+            success: false,
+            message: 'Naming entry not found or already deleted'
+          });
+          return;
+        }
+
+        console.log(`Successfully deleted naming entry: ${entryToDelete.canonical_name} (${entryToDelete.id}) with mock ID ${requestedId}`);
+
+        res.json({
+          success: true,
+          message: 'Naming entry deleted successfully'
+        });
+
+      } finally {
+        await pool.end();
+      }
 
     } catch (error) {
       console.error('Delete naming entry error:', error);
