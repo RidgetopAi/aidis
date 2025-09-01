@@ -79,7 +79,7 @@ export class TaskService {
    */
   static async countActive(projectId?: string): Promise<number> {
     try {
-      let query = "SELECT COUNT(*) FROM tasks WHERE status != 'completed' AND status != 'cancelled'";
+      let query = "SELECT COUNT(*) FROM agent_tasks WHERE status != 'completed' AND status != 'cancelled'";
       const params: any[] = [];
       
       if (projectId) {
@@ -110,7 +110,7 @@ export class TaskService {
           t.tags, t.metadata, t.created_at, t.updated_at,
           p.name as project_name,
           a.name as assigned_to_name
-        FROM tasks t
+        FROM agent_tasks t
         LEFT JOIN projects p ON t.project_id = p.id
         LEFT JOIN agents a ON t.assigned_to = a.id
         WHERE 1=1
@@ -210,7 +210,7 @@ export class TaskService {
           t.tags, t.metadata, t.created_at, t.updated_at,
           p.name as project_name,
           a.name as assigned_to_name
-        FROM tasks t
+        FROM agent_tasks t
         LEFT JOIN projects p ON t.project_id = p.id
         LEFT JOIN agents a ON t.assigned_to = a.id
         WHERE t.id = $1
@@ -259,7 +259,7 @@ export class TaskService {
       });
       
       const result = await pool.query(`
-        INSERT INTO tasks (
+        INSERT INTO agent_tasks (
           project_id, title, description, type, priority, 
           assigned_to, dependencies, tags, metadata
         )
@@ -354,7 +354,7 @@ export class TaskService {
 
     try {
       const result = await pool.query(`
-        UPDATE tasks 
+        UPDATE agent_tasks 
         SET ${setClauses.join(', ')}
         WHERE id = $${paramIndex}
         RETURNING *
@@ -391,7 +391,7 @@ export class TaskService {
    */
   static async deleteTask(id: string): Promise<boolean> {
     try {
-      const result = await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+      const result = await pool.query('DELETE FROM agent_tasks WHERE id = $1', [id]);
       return (result.rowCount || 0) > 0;
     } catch (error) {
       console.error('Delete task error:', error);
@@ -404,7 +404,7 @@ export class TaskService {
    */
   static async getTaskStats(projectId?: string): Promise<TaskStats> {
     try {
-      let baseQuery = 'FROM tasks';
+      let baseQuery = 'FROM agent_tasks';
       const params: any[] = [];
       
       if (projectId) {
@@ -463,16 +463,16 @@ export class TaskService {
       // Get tasks that this task depends on
       const dependenciesResult = await pool.query(`
         SELECT id, title, status
-        FROM tasks 
+        FROM agent_tasks 
         WHERE id = ANY(
-          SELECT unnest(dependencies) FROM tasks WHERE id = $1
+          SELECT unnest(dependencies) FROM agent_tasks WHERE id = $1
         )
       `, [taskId]);
 
       // Get tasks that depend on this task
       const dependentsResult = await pool.query(`
         SELECT id, title, status, dependencies
-        FROM tasks 
+        FROM agent_tasks 
         WHERE $1 = ANY(dependencies)
       `, [taskId]);
 
@@ -510,7 +510,7 @@ export class TaskService {
       
       for (const update of updates) {
         const result = await client.query(`
-          UPDATE tasks 
+          UPDATE agent_tasks 
           SET status = $1, updated_at = CURRENT_TIMESTAMP
           WHERE id = $2
           RETURNING *

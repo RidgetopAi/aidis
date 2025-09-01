@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../types/auth';
 import { McpService } from '../services/mcp';
+import { db } from '../database/connection';
 
 export class NamingController {
   /**
@@ -487,20 +488,12 @@ export class NamingController {
         return;
       }
 
-      // Import pg for database operations
-      const { Pool } = require('pg');
-      const pool = new Pool({
-        host: 'localhost',
-        port: 5432,
-        database: 'aidis_production',
-        user: 'ridgetop',
-        password: undefined
-      });
+      // Use shared database connection
 
       try {
         // Get actual database entries for this project
         console.log(`DEBUG: Searching for entries with project_id: ${projectId}`);
-        const dbResult = await pool.query(
+        const dbResult = await db.query(
           'SELECT id, canonical_name, entity_type FROM naming_registry WHERE project_id = $1',
           [projectId]
         );
@@ -509,7 +502,7 @@ export class NamingController {
 
         if (dbResult.rows.length === 0) {
           // Try querying all entries to see what's in the database
-          const allResult = await pool.query(
+          const allResult = await db.query(
             'SELECT id, canonical_name, entity_type, project_id FROM naming_registry LIMIT 10'
           );
           console.log(`DEBUG: All entries in database:`, allResult.rows);
@@ -583,7 +576,7 @@ export class NamingController {
         }
 
         // Delete the CORRECT entry from database
-        const deleteResult = await pool.query(
+        const deleteResult = await db.query(
           'DELETE FROM naming_registry WHERE id = $1 AND project_id = $2',
           [entryToDelete.id, projectId]
         );
@@ -604,7 +597,7 @@ export class NamingController {
         });
 
       } finally {
-        await pool.end();
+        // Connection pool is managed by shared db connection
       }
 
     } catch (error) {
