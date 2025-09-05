@@ -15,7 +15,6 @@ import {
 import {
   DashboardOutlined,
   DatabaseOutlined,
-  TeamOutlined,
   ProjectOutlined,
   FolderOutlined,
   BulbOutlined,
@@ -51,11 +50,6 @@ const AppLayout: React.FC = () => {
       key: '/contexts',
       icon: <DatabaseOutlined />,
       label: 'Contexts',
-    },
-    {
-      key: '/agents',
-      icon: <TeamOutlined />,
-      label: 'Agents',
     },
     {
       key: '/tasks',

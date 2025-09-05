@@ -34,14 +34,6 @@ interface Project {
   created_at: string;
 }
 
-interface Agent {
-  id: string;
-  name: string;
-  status: string;
-  type: string;
-  created_at: string;
-}
-
 const { TabPane } = Tabs;
 
 /**
@@ -51,7 +43,6 @@ const { TabPane } = Tabs;
 const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string>('');
@@ -143,13 +134,9 @@ const Tasks: React.FC = () => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      const [projectsRes, agentsRes] = await Promise.all([
-        apiService.get<{success: boolean; data: {projects: Project[]}}>('/projects'),
-        apiService.get<{success: boolean; data: {agents: Agent[]}}>('/agents')
-      ]);
+      const projectsRes = await apiService.get<{success: boolean; data: {projects: Project[]}}>('/projects');
 
       setProjects(projectsRes.data.projects || []);
-      setAgents(agentsRes.data.agents || []);
 
       // Auto-select first project if none selected
       if (!selectedProject && projectsRes.data.projects?.length > 0) {
@@ -159,7 +146,7 @@ const Tasks: React.FC = () => {
       console.error('Failed to load initial data:', error);
       notification.error({
         message: 'Loading Error',
-        description: 'Failed to load projects and agents.'
+        description: 'Failed to load projects.'
       });
     } finally {
       setLoading(false);
@@ -317,7 +304,6 @@ const Tasks: React.FC = () => {
                   onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTask}
                   projects={projects}
-                  agents={agents}
                 />
               </TabPane>
 
@@ -328,7 +314,6 @@ const Tasks: React.FC = () => {
                   onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTask}
                   projects={projects}
-                  agents={agents}
                 />
               </TabPane>
 

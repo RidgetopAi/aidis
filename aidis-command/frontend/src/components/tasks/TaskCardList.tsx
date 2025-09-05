@@ -57,7 +57,6 @@ interface TaskCardListProps {
   onUpdateTask: (taskId: string, updates: any) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   projects: Array<{ id: string; name: string; }>;
-  agents: Array<{ id: string; name: string; }>;
 }
 
 const TaskCardList: React.FC<TaskCardListProps> = ({ 
@@ -65,8 +64,7 @@ const TaskCardList: React.FC<TaskCardListProps> = ({
   loading, 
   onUpdateTask, 
   onDeleteTask,
-  projects,
-  agents 
+  projects 
 }) => {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>(tasks);
   const [searchTerm, setSearchTerm] = useState('');
@@ -396,20 +394,14 @@ const TaskCardList: React.FC<TaskCardListProps> = ({
                             <Text strong style={{ fontSize: '12px', display: 'block', marginBottom: 4 }}>
                               Assign to:
                             </Text>
-                            <Select
+                            <Input
                               value={task.assigned_to || ''}
                               placeholder="Unassigned"
                               style={{ width: '100%' }}
                               size="small"
-                              allowClear
-                              onChange={(value) => handleAssigneeChange(task.id, value)}
-                            >
-                              {agents.map(agent => (
-                                <Option key={agent.id} value={agent.name}>
-                                  <UserOutlined /> {agent.name}
-                                </Option>
-                              ))}
-                            </Select>
+                              prefix={<UserOutlined />}
+                              onChange={(e) => handleAssigneeChange(task.id, e.target.value)}
+                            />
                           </div>
 
                           {/* Metadata */}

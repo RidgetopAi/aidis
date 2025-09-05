@@ -8,7 +8,6 @@ import AppLayout from './components/AppLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Contexts from './pages/Contexts';
-import Agents from './pages/Agents';
 import Tasks from './pages/Tasks';
 import Decisions from './pages/Decisions';
 import Naming from './pages/Naming';
@@ -56,7 +55,6 @@ const App: React.FC = () => {
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="contexts" element={<Contexts />} />
-                <Route path="agents" element={<Agents />} />
                 <Route path="tasks" element={<Tasks />} />
                 <Route path="decisions" element={<Decisions />} />
                 <Route path="naming" element={<Naming />} />

@@ -29,7 +29,6 @@ interface TaskListProps {
   onUpdateTask: (taskId: string, updates: any) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   projects: Array<{ id: string; name: string; }>;
-  agents: Array<{ id: string; name: string; }>;
 }
 
 const TaskList: React.FC<TaskListProps> = ({ 
@@ -37,8 +36,7 @@ const TaskList: React.FC<TaskListProps> = ({
   loading, 
   onUpdateTask, 
   onDeleteTask,
-  projects,
-  agents 
+  projects 
 }) => {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>(tasks);
   const [searchTerm, setSearchTerm] = useState('');
@@ -172,20 +170,14 @@ const TaskList: React.FC<TaskListProps> = ({
       key: 'assigned_to',
       width: 120,
       render: (assignedTo: string, record: Task) => (
-        <Select
+        <Input
           value={assignedTo || ''}
           placeholder="Unassigned"
           style={{ width: '100%' }}
           size="small"
-          allowClear
-          onChange={(value) => handleAssigneeChange(record.id, value)}
-        >
-          {agents.map(agent => (
-            <Option key={agent.id} value={agent.name}>
-              <UserOutlined /> {agent.name}
-            </Option>
-          ))}
-        </Select>
+          prefix={<UserOutlined />}
+          onChange={(e) => handleAssigneeChange(record.id, e.target.value)}
+        />
       ),
     },
     {
