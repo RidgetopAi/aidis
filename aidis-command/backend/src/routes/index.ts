@@ -9,6 +9,7 @@ import taskRoutes from './tasks';
 import decisionRoutes from './decisions';
 import namingRoutes from './naming';
 import dashboardRoutes from './dashboard';
+// import monitoringRoutes from './monitoring'; // Debugging
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.use('/tasks', taskRoutes);
 router.use('/decisions', decisionRoutes);
 router.use('/naming', namingRoutes);
 router.use('/dashboard', dashboardRoutes);
+// router.use('/monitoring', monitoringRoutes); // Debugging
 
 export default router;

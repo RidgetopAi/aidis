@@ -10,6 +10,7 @@ router.use(authenticateToken);
 // Project routes
 router.get('/stats', ProjectController.getProjectStats);
 router.get('/sessions/all', ProjectController.getAllSessions);
+router.get('/:id/insights', ProjectController.getProjectInsights);
 router.get('/:id/sessions', ProjectController.getProjectSessions);
 router.get('/:id', ProjectController.getProject);
 router.get('/', ProjectController.getAllProjects);

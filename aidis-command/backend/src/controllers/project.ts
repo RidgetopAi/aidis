@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ProjectService } from '../services/project';
+import { McpService } from '../services/mcp';
 
 export class ProjectController {
   /**
@@ -226,6 +227,48 @@ export class ProjectController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get project statistics'
+      });
+    }
+  }
+
+  /**
+   * GET /projects/:id/insights - Get project insights from AIDIS MCP
+   */
+  static async getProjectInsights(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      
+      console.log(`[Project Insights] Getting insights for project ${id}`);
+      
+      // Call the AIDIS project_insights MCP tool
+      const mcpResult = await McpService.callTool('project_insights', { 
+        projectId: id 
+      });
+
+      if (!mcpResult.success) {
+        console.error('[Project Insights] MCP call failed:', mcpResult.error);
+        res.status(500).json({
+          success: false,
+          error: mcpResult.error || 'Failed to get project insights from AIDIS'
+        });
+        return;
+      }
+
+      console.log('[Project Insights] MCP result:', mcpResult.data);
+
+      res.json({
+        success: true,
+        data: {
+          insights: mcpResult.data,
+          generatedAt: new Date().toISOString(),
+          projectId: id
+        }
+      });
+    } catch (error) {
+      console.error('Get project insights error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get project insights'
       });
     }
   }

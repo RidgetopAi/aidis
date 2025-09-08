@@ -23,6 +23,8 @@ import {
 import { useAuthContext } from '../contexts/AuthContext';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { useDashboardStats } from '../hooks/useDashboardStats';
+import ProjectInsights from '../components/analytics/ProjectInsights';
+import SystemMonitoring from '../components/analytics/SystemMonitoring';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -168,6 +170,14 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Project Insights */}
+      {currentProject && (
+        <ProjectInsights projectId={currentProject.id} />
+      )}
+
+      {/* System Monitoring */}
+      <SystemMonitoring />
 
       {/* Feature Cards */}
       <Row gutter={[24, 24]}>

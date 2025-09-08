@@ -48,6 +48,12 @@ export interface ProjectStats {
   };
 }
 
+export interface ProjectInsights {
+  insights: string;
+  generatedAt: string;
+  projectId: string;
+}
+
 export interface CreateProjectRequest {
   name: string;
   description?: string;
@@ -206,6 +212,22 @@ export class ProjectApi {
     }
     
     return response.data.stats;
+  }
+
+  /**
+   * Get project insights from AIDIS MCP
+   */
+  static async getProjectInsights(projectId: string): Promise<ProjectInsights> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: ProjectInsights;
+    }>(`/projects/${projectId}/insights`);
+    
+    if (!response.success) {
+      throw new Error('Failed to fetch project insights');
+    }
+    
+    return response.data;
   }
 }
 

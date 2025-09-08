@@ -47,7 +47,7 @@ export class McpService {
       
       const options = {
         hostname: 'localhost',
-        port: process.env.AIDIS_MCP_PORT || 8081,
+        port: process.env.AIDIS_MCP_PORT || 8080,
         path: `/mcp/tools/${toolName}`,
         method: 'POST',
         headers: {
@@ -90,6 +90,8 @@ export class McpService {
                     result = this.parseDecisionSearch(textResult);
                   } else if (toolName === 'decision_stats') {
                     result = this.parseDecisionStats(textResult);
+                  } else if (toolName === 'project_insights') {
+                    result = this.parseProjectInsights(textResult);
                   } else {
                     // For other tools, return the text as-is for now
                     result = textResult;
@@ -339,6 +341,75 @@ export class McpService {
     }
 
     return stats;
+  }
+
+  /**
+   * Parse project insights from AIDIS text response
+   */
+  private static parseProjectInsights(text: string): any {
+    const insights: any = {
+      projectHealth: {
+        score: 0,
+        level: 'unknown',
+        components: 0,
+        contexts: 0,
+        decisions: 0,
+        tasks: 0
+      },
+      teamEfficiency: {
+        score: 0,
+        level: 'unknown'
+      },
+      raw: text
+    };
+
+    // Extract health score - looks for patterns like "HEALTHY (80.76/100)"
+    const healthMatch = text.match(/🟢\s*HEALTHY\s*\(([0-9.]+)\/100\)|🟡\s*MODERATE\s*\(([0-9.]+)\/100\)|🔴\s*POOR\s*\(([0-9.]+)\/100\)/);
+    if (healthMatch) {
+      const score = parseFloat(healthMatch[1] || healthMatch[2] || healthMatch[3]);
+      insights.projectHealth.score = score;
+      
+      if (score >= 70) insights.projectHealth.level = 'healthy';
+      else if (score >= 40) insights.projectHealth.level = 'moderate';
+      else insights.projectHealth.level = 'poor';
+    }
+
+    // Extract team efficiency - looks for patterns like "🤝 Team Efficiency: 🟡 MODERATE (45%)"
+    const efficiencyMatch = text.match(/🤝\s*Team Efficiency:\s*🟡\s*MODERATE\s*\((\d+)%\)|🟢\s*EFFICIENT\s*\((\d+)%\)|🔴\s*POOR\s*\((\d+)%\)/);
+    if (efficiencyMatch) {
+      const score = parseInt(efficiencyMatch[1] || efficiencyMatch[2] || efficiencyMatch[3]);
+      insights.teamEfficiency.score = score;
+      
+      if (score >= 70) insights.teamEfficiency.level = 'efficient';
+      else if (score >= 40) insights.teamEfficiency.level = 'moderate';
+      else insights.teamEfficiency.level = 'poor';
+    }
+
+    // Extract component count
+    const componentsMatch = text.match(/📦\s*Components:\s*(\d+)/);
+    if (componentsMatch) {
+      insights.projectHealth.components = parseInt(componentsMatch[1]);
+    }
+
+    // Extract context count
+    const contextsMatch = text.match(/📝\s*Contexts:\s*(\d+)/);
+    if (contextsMatch) {
+      insights.projectHealth.contexts = parseInt(contextsMatch[1]);
+    }
+
+    // Extract decisions count
+    const decisionsMatch = text.match(/🎯\s*Decisions:\s*(\d+)/);
+    if (decisionsMatch) {
+      insights.projectHealth.decisions = parseInt(decisionsMatch[1]);
+    }
+
+    // Extract tasks count
+    const tasksMatch = text.match(/📋\s*Tasks:\s*(\d+)/);
+    if (tasksMatch) {
+      insights.projectHealth.tasks = parseInt(tasksMatch[1]);
+    }
+
+    return insights;
   }
 
   /**
