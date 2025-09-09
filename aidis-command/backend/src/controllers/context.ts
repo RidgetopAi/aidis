@@ -12,6 +12,7 @@ export class ContextController {
       const params: ContextSearchParams = {
         ...(req.query.query && { query: req.query.query as string }),
         ...(req.projectId && { project_id: req.projectId }),
+        ...(req.query.session_id && { session_id: req.query.session_id as string }),
         ...(req.query.type && { type: req.query.type as string }),
         ...(req.query.tags && { tags: (req.query.tags as string).split(',') }),
         ...(req.query.min_similarity && { min_similarity: parseFloat(req.query.min_similarity as string) }),

@@ -12,8 +12,10 @@ router.get('/analytics', SessionController.getSessionAnalytics);
 router.get('/trends', SessionController.getSessionTrends);
 router.get('/productive', SessionController.getProductiveSessions);
 router.get('/token-patterns', SessionController.getTokenUsagePatterns);
+router.get('/summaries', SessionController.getSessionSummaries);
+router.get('/stats-by-period', SessionController.getSessionStatsByPeriod);
 
-// Session detail route
+// Session detail route (must be last to avoid conflicts)
 router.get('/:id', SessionController.getSessionDetail);
 
 export default router;

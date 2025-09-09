@@ -113,13 +113,21 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
         end_date: dayjs(selectedDateRange[1]).format('YYYY-MM-DD')
       };
 
-      // Just load basic working data
-      const [statsResponse, tasksResponse] = await Promise.all([
+      // Load all analytics data including sessions
+      const [statsResponse, tasksResponse, sessionTrendsResponse, sessionAnalyticsResponse] = await Promise.all([
         apiService.get<{success: boolean; data: {stats: TaskStats}}>('/tasks/stats', { params }),
-        apiService.get<{success: boolean; data: {tasks: Task[]}}>('/tasks', { params: { ...params, limit: 1000 } })
+        apiService.get<{success: boolean; data: {tasks: Task[]}}>('/tasks', { params: { ...params, limit: 1000 } }),
+        apiService.get<{success: boolean; data: {stats: any[]}}>(
+          '/sessions/stats-by-period', 
+          { params: { period: 'day', limit: 30, ...params } }
+        ).catch(() => ({ data: { stats: [] } })), // Fallback if endpoint doesn't exist
+        apiService.get<{success: boolean; data: any}>(
+          '/sessions/analytics', 
+          { params }
+        ).catch(() => ({ data: null })) // Fallback if endpoint doesn't exist
       ]);
 
-      // Normalize basic stats only
+      // Normalize basic stats
       const normalizedStats = {
         ...statsResponse.data.stats,
         completion_rate: safeNumber(statsResponse.data.stats?.completion_rate),
@@ -130,11 +138,44 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
       setStats(normalizedStats);
       setTasks(tasksResponse.data.tasks);
       
-      // Disable advanced analytics for now
-      setSessionTrends([]);
-      setSessionAnalytics(null);
-      setLeadTimeData(null);
-      setWeeklyVelocityData([]);
+      // Set session data if available
+      if (sessionTrendsResponse.data?.stats) {
+        const trends = sessionTrendsResponse.data.stats.map((stat: any) => ({
+          date: stat.period,
+          session_count: stat.session_count || 0,
+          total_duration: stat.total_duration_minutes || 0,
+          avg_duration: stat.avg_duration_minutes || 0,
+          total_contexts: stat.total_contexts || 0,
+          total_tokens: stat.total_tokens || 0,
+          productivity_score: Math.min(stat.total_contexts * 2 + stat.session_count, 100) // Simple scoring
+        }));
+        setSessionTrends(trends);
+      } else {
+        setSessionTrends([]);
+      }
+      
+      if (sessionAnalyticsResponse.data) {
+        const analytics = {
+          total_sessions: sessionAnalyticsResponse.data.total_sessions || 0,
+          total_duration: sessionAnalyticsResponse.data.total_duration_minutes || 0,
+          avg_duration: sessionAnalyticsResponse.data.average_duration_minutes || 0,
+          total_contexts: sessionAnalyticsResponse.data.total_contexts || 0,
+          avg_contexts_per_session: sessionAnalyticsResponse.data.average_contexts_per_session || 0,
+          total_tokens: sessionAnalyticsResponse.data.total_tokens_used || 0,
+          avg_tokens_per_session: sessionAnalyticsResponse.data.average_tokens_per_session || 0,
+          productivity_score: Math.min(
+            (sessionAnalyticsResponse.data.total_contexts || 0) * 0.5 + 
+            (sessionAnalyticsResponse.data.total_sessions || 0) * 5, 
+            100
+          ) // Simple productivity calculation
+        };
+        setSessionAnalytics(analytics);
+      } else {
+        setSessionAnalytics(null);
+      }
+      
+      setLeadTimeData(null); // Keep this disabled for now
+      setWeeklyVelocityData([]); // This will be calculated from session trends
     } catch (error) {
       console.error('Failed to load analytics data:', error);
       notification.error({

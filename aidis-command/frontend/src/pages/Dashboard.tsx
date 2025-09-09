@@ -25,6 +25,7 @@ import { useProjectContext } from '../contexts/ProjectContext';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import ProjectInsights from '../components/analytics/ProjectInsights';
 import SystemMonitoring from '../components/analytics/SystemMonitoring';
+import SessionSummaries from '../components/analytics/SessionSummaries';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -175,6 +176,9 @@ const Dashboard: React.FC = () => {
       {currentProject && (
         <ProjectInsights projectId={currentProject.id} />
       )}
+
+      {/* Session Analytics */}
+      <SessionSummaries projectId={currentProject?.id} limit={10} />
 
       {/* System Monitoring */}
       <SystemMonitoring />

@@ -1,15 +1,15 @@
 import { Request, Response } from 'express';
-import { SessionService } from '../services/session';
 import { SessionAnalyticsService } from '../services/sessionAnalytics';
+import { SessionDetailService } from '../services/sessionDetail';
 
 export class SessionController {
   /**
-   * GET /sessions/:id - Get session details with contexts
+   * GET /sessions/:id - Get comprehensive session details with contexts, decisions, tasks
    */
   static async getSessionDetail(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const session = await SessionService.getSessionDetail(id);
+      const session = await SessionDetailService.getSessionDetail(id);
 
       if (!session) {
         res.status(404).json({
@@ -122,6 +122,56 @@ export class SessionController {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get token usage patterns'
+      });
+    }
+  }
+
+  /**
+   * GET /sessions/summaries - Get session summaries with activity counts
+   */
+  static async getSessionSummaries(req: Request, res: Response): Promise<void> {
+    try {
+      const { project_id, limit, offset } = req.query;
+      const projectId = typeof project_id === 'string' ? project_id : undefined;
+      const limitNum = typeof limit === 'string' ? parseInt(limit) : 20;
+      const offsetNum = typeof offset === 'string' ? parseInt(offset) : 0;
+      
+      const summaries = await SessionDetailService.getSessionSummaries(projectId, limitNum, offsetNum);
+
+      res.json({
+        success: true,
+        data: { summaries }
+      });
+    } catch (error) {
+      console.error('Get session summaries error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get session summaries'
+      });
+    }
+  }
+
+  /**
+   * GET /sessions/stats-by-period - Get aggregated session statistics by time period
+   */
+  static async getSessionStatsByPeriod(req: Request, res: Response): Promise<void> {
+    try {
+      const { period, project_id, limit } = req.query;
+      const periodType = (period === 'day' || period === 'week' || period === 'month') ? period : 'day';
+      const projectId = typeof project_id === 'string' ? project_id : undefined;
+      const limitNum = typeof limit === 'string' ? parseInt(limit) : 30;
+      
+      const stats = await SessionDetailService.getSessionStatsByPeriod(periodType, projectId, limitNum);
+
+      res.json({
+        success: true,
+        data: { stats }
+      });
+    } catch (error) {
+      console.error('Get session stats by period error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get session statistics by period'
       });
     }
   }
