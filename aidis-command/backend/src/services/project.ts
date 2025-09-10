@@ -20,6 +20,7 @@ export interface Session {
   project_id: string;
   project_name?: string;
   created_at: string;
+  session_type: string;
   context_count?: number;
   last_context_at?: string;
 }
@@ -280,6 +281,7 @@ export class ProjectService {
         project_id: row.project_id,
         project_name: row.project_name,
         created_at: row.created_at,
+        session_type: 'context-based', // Legacy context-based sessions
         context_count: parseInt(row.context_count) || 0,
         last_context_at: row.last_context_at
       }));
@@ -295,18 +297,43 @@ export class ProjectService {
   static async getAllSessions(): Promise<Session[]> {
     try {
       const result = await pool.query(`
+        WITH all_sessions AS (
+          -- User sessions (web sessions)
+          SELECT 
+            us.id,
+            us.project_id,
+            p.name as project_name,
+            us.started_at as created_at,
+            'web' as session_type,
+            us.contexts_created as context_count,
+            us.last_activity as last_context_at
+          FROM user_sessions us
+          LEFT JOIN projects p ON us.project_id = p.id
+          
+          UNION ALL
+          
+          -- Agent sessions (Claude Code, etc.)
+          SELECT 
+            s.id,
+            s.project_id,
+            p.name as project_name,
+            s.started_at as created_at,
+            s.agent_type as session_type,
+            COALESCE((SELECT COUNT(*) FROM contexts c WHERE c.session_id = s.id), 0) as context_count,
+            COALESCE(s.ended_at, s.started_at) as last_context_at
+          FROM sessions s
+          LEFT JOIN projects p ON s.project_id = p.id
+        )
         SELECT 
-          COALESCE(c.session_id, gen_random_uuid()) as id,
-          c.project_id,
-          p.name as project_name,
-          MIN(c.created_at) as created_at,
-          COUNT(*) as context_count,
-          MAX(c.created_at) as last_context_at
-        FROM contexts c
-        LEFT JOIN projects p ON c.project_id = p.id
-        WHERE c.session_id IS NOT NULL
-        GROUP BY c.session_id, c.project_id, p.name
-        ORDER BY MIN(c.created_at) DESC
+          id,
+          project_id,
+          project_name,
+          created_at,
+          session_type,
+          context_count,
+          last_context_at
+        FROM all_sessions
+        ORDER BY created_at DESC
       `);
 
       return result.rows.map(row => ({
@@ -314,6 +341,7 @@ export class ProjectService {
         project_id: row.project_id,
         project_name: row.project_name,
         created_at: row.created_at,
+        session_type: row.session_type,
         context_count: parseInt(row.context_count) || 0,
         last_context_at: row.last_context_at
       }));

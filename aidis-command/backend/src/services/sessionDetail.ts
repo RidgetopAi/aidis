@@ -1,4 +1,5 @@
 import { db as pool } from '../database/connection';
+import GitService from './gitService';
 
 export interface SessionDetail {
   id: string;
@@ -26,6 +27,11 @@ export interface SessionDetail {
   decisions: SessionDecision[];
   tasks: SessionTask[];
   code_components: SessionCodeComponent[];
+  
+  // Git correlation data
+  commits_contributed: number;
+  linked_commits: SessionCommit[];
+  git_correlation_confidence: number;
   
   // Summary
   context_summary?: string;
@@ -71,16 +77,32 @@ export interface SessionCodeComponent {
   analyzed_at: string;
 }
 
+export interface SessionCommit {
+  id: string;
+  commit_sha: string;
+  short_sha: string;
+  message: string;
+  author_name: string;
+  author_email: string;
+  author_date: string;
+  confidence_score: number;
+  link_type: string;
+  time_proximity_minutes?: number;
+  author_match: boolean;
+}
+
 export interface SessionSummary {
   id: string;
   project_name?: string;
   started_at: string;
   duration_minutes: number;
+  session_type: string;
   total_tokens: number;
   contexts_created: number;
   decisions_created: number;
   tasks_created: number;
   tasks_completed: number;
+  commits_contributed: number;
   productivity_score: number;
 }
 
@@ -186,6 +208,33 @@ export class SessionDetailService {
         session.ended_at
       ]);
       
+      // Get git commits linked to this session
+      const commitsQuery = `
+        SELECT 
+          gc.id,
+          gc.commit_sha,
+          gc.short_sha,
+          gc.message,
+          gc.author_name,
+          gc.author_email,
+          gc.author_date,
+          csl.confidence_score,
+          csl.link_type,
+          csl.time_proximity_minutes,
+          csl.author_match
+        FROM git_commits gc
+        JOIN commit_session_links csl ON gc.id = csl.commit_id
+        WHERE csl.session_id = $1
+        ORDER BY gc.author_date DESC
+      `;
+      
+      const commitsResult = await pool.query(commitsQuery, [sessionId]);
+      
+      // Calculate git correlation confidence
+      const avgConfidence = commitsResult.rows.length > 0 
+        ? commitsResult.rows.reduce((sum, commit) => sum + commit.confidence_score, 0) / commitsResult.rows.length
+        : 0;
+      
       // Calculate productivity score
       const productivityScore = calculateProductivityScore(
         session.duration_minutes,
@@ -219,6 +268,11 @@ export class SessionDetailService {
         tasks: tasksResult.rows.map(mapTask),
         code_components: codeResult.rows.map(mapCodeComponent),
         
+        // Git correlation data
+        commits_contributed: commitsResult.rows.length,
+        linked_commits: commitsResult.rows.map(mapCommit),
+        git_correlation_confidence: Math.round(avgConfidence * 100) / 100,
+        
         context_summary: session.context_summary,
         productivity_score: productivityScore
       };
@@ -242,6 +296,7 @@ export class SessionDetailService {
       
       const query = `
         WITH session_activity AS (
+          -- User sessions (web sessions)
           SELECT 
             s.id,
             s.project_id,
@@ -253,6 +308,7 @@ export class SessionDetailService {
             s.decisions_created,
             s.tasks_created,
             EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60 as duration_minutes,
+            'web' as session_type,
             (
               SELECT COUNT(*) 
               FROM tasks t 
@@ -263,12 +319,39 @@ export class SessionDetailService {
           FROM user_sessions s
           LEFT JOIN projects p ON s.project_id = p.id
           ${whereClause}
+          
+          UNION ALL
+          
+          -- Agent sessions (Claude Code, etc.)
+          SELECT 
+            s.id,
+            s.project_id,
+            p.name as project_name,
+            s.started_at,
+            s.ended_at,
+            s.tokens_used as total_tokens,
+            COALESCE((SELECT COUNT(*) FROM contexts c WHERE c.session_id = s.id), 0) as contexts_created,
+            COALESCE((SELECT COUNT(*) FROM technical_decisions td WHERE td.session_id = s.id), 0) as decisions_created,
+            0 as tasks_created, -- Agent sessions don't track tasks directly
+            EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60 as duration_minutes,
+            s.agent_type as session_type,
+            (
+              SELECT COUNT(*) 
+              FROM tasks t 
+              WHERE t.project_id = s.project_id
+                AND t.status = 'completed'
+                AND t.updated_at BETWEEN s.started_at AND COALESCE(s.ended_at, CURRENT_TIMESTAMP)
+            ) as tasks_completed
+          FROM sessions s
+          LEFT JOIN projects p ON s.project_id = p.id
+          ${whereClause.replace('s.project_id', 's.project_id')}
         )
         SELECT 
           id,
           project_name,
           started_at,
           duration_minutes,
+          session_type,
           COALESCE(total_tokens, 0) as total_tokens,
           COALESCE(contexts_created, 0) as contexts_created,
           COALESCE(decisions_created, 0) as decisions_created,
@@ -292,12 +375,14 @@ export class SessionDetailService {
         project_name: row.project_name,
         started_at: row.started_at,
         duration_minutes: Math.round(parseFloat(row.duration_minutes) || 0),
+        session_type: row.session_type,
         total_tokens: parseInt(row.total_tokens) || 0,
         contexts_created: parseInt(row.contexts_created) || 0,
         decisions_created: parseInt(row.decisions_created) || 0,
         tasks_created: parseInt(row.tasks_created) || 0,
         tasks_completed: parseInt(row.tasks_completed) || 0,
-        productivity_score: Math.round(parseFloat(row.productivity_score) * 10) / 10
+        productivity_score: Math.round(parseFloat(row.productivity_score) * 10) / 10,
+        commits_contributed: 0 // Will be populated when git correlation is implemented
       }));
     } catch (error) {
       console.error('Get session summaries error:', error);
@@ -305,6 +390,99 @@ export class SessionDetailService {
     }
   }
   
+  /**
+   * Trigger automatic git correlation for a session
+   */
+  static async correlateSessionWithGit(sessionId: string): Promise<{
+    success: boolean;
+    linksCreated: number;
+    linksUpdated: number;
+    confidence: number;
+    message: string;
+  }> {
+    try {
+      console.log(`🔗 Correlating session ${sessionId.substring(0, 8)}... with git commits`);
+      
+      // Get session details
+      const sessionQuery = `
+        SELECT project_id, started_at, ended_at 
+        FROM user_sessions 
+        WHERE id = $1
+        UNION ALL
+        SELECT project_id, started_at, ended_at 
+        FROM sessions 
+        WHERE id = $1
+      `;
+      
+      const sessionResult = await pool.query(sessionQuery, [sessionId]);
+      
+      if (sessionResult.rows.length === 0) {
+        return {
+          success: false,
+          linksCreated: 0,
+          linksUpdated: 0,
+          confidence: 0,
+          message: 'Session not found'
+        };
+      }
+      
+      const session = sessionResult.rows[0];
+      
+      if (!session.project_id) {
+        return {
+          success: false,
+          linksCreated: 0,
+          linksUpdated: 0,
+          confidence: 0,
+          message: 'Session not assigned to a project'
+        };
+      }
+      
+      // Run git correlation using GitService
+      const correlationResult = await GitService.correlateCommitsWithSessions({
+        project_id: session.project_id,
+        since: new Date(session.started_at),
+        confidence_threshold: 0.2 // Lower threshold for individual session correlation
+      });
+      
+      return {
+        success: true,
+        linksCreated: correlationResult.links_created,
+        linksUpdated: correlationResult.links_updated,
+        confidence: correlationResult.high_confidence_links > 0 ? 0.8 : 0.4,
+        message: `Correlation completed: ${correlationResult.links_created} new links, ${correlationResult.links_updated} updated`
+      };
+      
+    } catch (error) {
+      console.error('Session git correlation error:', error);
+      return {
+        success: false,
+        linksCreated: 0,
+        linksUpdated: 0,
+        confidence: 0,
+        message: error instanceof Error ? error.message : 'Failed to correlate session with git'
+      };
+    }
+  }
+
+  /**
+   * Auto-correlate git commits when session ends
+   */
+  static async autoCorrelateOnSessionEnd(sessionId: string): Promise<void> {
+    try {
+      console.log(`🔄 Auto-correlating session ${sessionId.substring(0, 8)}... on session end`);
+      
+      // Small delay to ensure all git operations are complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      await this.correlateSessionWithGit(sessionId);
+      
+    } catch (error) {
+      console.error('Auto-correlation on session end failed:', error);
+      // Non-blocking error - log but don't throw
+    }
+  }
+
   /**
    * Get aggregated session statistics by time period
    */
@@ -429,5 +607,21 @@ function mapCodeComponent(row: any): SessionCodeComponent {
     lines_of_code: row.lines_of_code,
     complexity_score: row.complexity_score,
     analyzed_at: row.analyzed_at
+  };
+}
+
+function mapCommit(row: any): SessionCommit {
+  return {
+    id: row.id,
+    commit_sha: row.commit_sha,
+    short_sha: row.short_sha,
+    message: row.message,
+    author_name: row.author_name,
+    author_email: row.author_email,
+    author_date: row.author_date,
+    confidence_score: parseFloat(row.confidence_score) || 0,
+    link_type: row.link_type,
+    time_proximity_minutes: row.time_proximity_minutes,
+    author_match: row.author_match || false
   };
 }
