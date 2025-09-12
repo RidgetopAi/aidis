@@ -27,7 +27,7 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       refreshProjects();
-      loadCurrentProjectFromStorage();
+      loadCurrentProjectFromSession();
     }
   }, [isAuthenticated, authLoading]);
 
@@ -40,15 +40,44 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     }
   }, [currentProject]);
 
-  const loadCurrentProjectFromStorage = () => {
+  const loadCurrentProjectFromSession = async () => {
     try {
+      // First, try to get current project from MCP session
+      const session = await ProjectApi.getCurrentSession();
+      if (session?.project_name && session?.project_id) {
+        // Find the project in our projects list
+        const sessionProject: Project = {
+          id: session.project_id,
+          name: session.project_name,
+          status: 'active' as const,
+          created_at: session.created_at || new Date().toISOString(),
+          updated_at: session.created_at || new Date().toISOString(),
+          description: `Project from MCP session: ${session.title || session.project_name}`
+        };
+        setCurrentProject(sessionProject);
+        console.log('✅ Loaded project from MCP session:', sessionProject.name);
+        return;
+      }
+      
+      // Fallback to localStorage if session API fails
       const stored = localStorage.getItem('aidis_current_project');
       if (stored) {
         const project = JSON.parse(stored);
         setCurrentProject(project);
+        console.log('📱 Loaded project from localStorage:', project.name);
       }
     } catch (error) {
-      console.error('Failed to load current project from storage:', error);
+      console.error('Failed to load project from session:', error);
+      // Fallback to localStorage
+      try {
+        const stored = localStorage.getItem('aidis_current_project');
+        if (stored) {
+          const project = JSON.parse(stored);
+          setCurrentProject(project);
+        }
+      } catch (storageError) {
+        console.error('Failed to load project from storage:', storageError);
+      }
     }
   };
 

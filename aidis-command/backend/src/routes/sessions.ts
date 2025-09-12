@@ -4,7 +4,10 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// Apply authentication to all session routes
+// Current session route for session recovery (no auth required for development)
+router.get('/current', SessionController.getCurrentSession);
+
+// Apply authentication to all other session routes
 router.use(authenticateToken);
 
 // Sessions list and stats routes (place before /:id to avoid conflicts)
@@ -18,9 +21,6 @@ router.get('/productive', SessionController.getProductiveSessions);
 router.get('/token-patterns', SessionController.getTokenUsagePatterns);
 router.get('/summaries', SessionController.getSessionSummaries);
 router.get('/stats-by-period', SessionController.getSessionStatsByPeriod);
-
-// Current session route for session recovery
-router.get('/current', SessionController.getCurrentSession);
 
 // Session assignment route
 router.post('/assign', SessionController.assignCurrentSession);

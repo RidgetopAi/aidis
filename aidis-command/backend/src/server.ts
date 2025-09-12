@@ -7,6 +7,7 @@ import config from './config/environment';
 import { initializeDatabase } from './database/connection';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { projectContextMiddleware } from './middleware/project';
+import { requestMonitoringMiddleware } from './middleware/requestMonitoring';
 import { webSocketService } from './services/websocket';
 import apiRoutes from './routes';
 
@@ -33,6 +34,9 @@ if (config.nodeEnv === 'development') {
 } else {
   app.use(morgan('combined'));
 }
+
+// Request monitoring middleware (applied to all API routes)
+app.use('/api', requestMonitoringMiddleware);
 
 // Oracle Phase 1: Project context middleware (applied to all API routes)
 app.use('/api', projectContextMiddleware);

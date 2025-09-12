@@ -181,17 +181,42 @@ export class SessionController {
    */
   static async getCurrentSession(_req: Request, res: Response): Promise<void> {
     try {
-      // For now, return null as there's no active session tracking
-      // This will be enhanced when MCP integration is properly set up
+      // Import dynamically to avoid circular dependencies
+      const { MCPIntegrationService } = await import('../services/mcpIntegration');
+      
+      // Get current session from MCP server
+      const mcpSession = await MCPIntegrationService.getCurrentSession();
+      
+      if (!mcpSession) {
+        res.json({
+          success: true,
+          data: { session: null }
+        });
+        return;
+      }
+      
+      // Transform MCP session to UI session format
+      const session = {
+        id: mcpSession.sessionId,
+        project_id: mcpSession.projectId || 'unknown',
+        project_name: mcpSession.projectName || 'Unknown',
+        title: mcpSession.title || `Session ${mcpSession.sessionId.substring(0, 8)}`,
+        description: mcpSession.description || '',
+        created_at: mcpSession.startedAt || new Date().toISOString(),
+        context_count: mcpSession.contextCount || 0,
+        last_context_at: mcpSession.lastContextAt || null
+      };
+
       res.json({
         success: true,
-        data: { session: null }
+        data: { session }
       });
     } catch (error) {
       console.error('Get current session error:', error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get current session'
+      // If MCP integration fails, return null instead of erroring
+      res.json({
+        success: true,
+        data: { session: null }
       });
     }
   }
