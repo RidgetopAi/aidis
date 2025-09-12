@@ -1,5 +1,7 @@
 import { Pool, PoolConfig } from 'pg';
 import dotenv from 'dotenv';
+import { createDatabaseLogger } from '../middleware/databaseLogger';
+import { dbLogger } from '../config/logger';
 
 dotenv.config();
 
@@ -26,21 +28,48 @@ const dbConfig: PoolConfig = {
 // Create the connection pool
 export const db = new Pool(dbConfig);
 
+// Create database logger instance
+export const dbWithLogging = createDatabaseLogger(db);
+
 /**
  * Initialize database connection and verify connectivity
  */
 export async function initializeDatabase(): Promise<void> {
   try {
+    dbLogger.info('Initializing database connection...', {
+      host: dbConfig.host,
+      database: dbConfig.database,
+      user: dbConfig.user,
+      port: dbConfig.port,
+      ssl: !!dbConfig.ssl
+    });
+
     const client = await db.connect();
-    console.log('✅ Database connection established successfully');
+    dbLogger.info('Database connection established successfully');
     
-    // Test basic query
-    const result = await client.query('SELECT NOW() as current_time');
-    console.log('✅ Database query test successful:', result.rows[0].current_time);
+    // Test basic query using logged query
+    const result = await dbWithLogging.query('SELECT NOW() as current_time', [], 'init');
+    dbLogger.info('Database query test successful', {
+      currentTime: result.rows[0].current_time
+    });
     
     client.release();
+    
+    // Setup periodic pool stats logging
+    setInterval(() => {
+      dbWithLogging.logPoolStats();
+    }, 60000); // Log every minute
+    
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    dbLogger.error('Database connection failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      config: {
+        host: dbConfig.host,
+        database: dbConfig.database,
+        port: dbConfig.port
+      }
+    });
     throw error;
   }
 }

@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import { logger, securityLogger } from '../config/logger';
+import { getCorrelationId } from './correlationId';
 
 export interface AppError extends Error {
   statusCode: number;
@@ -16,18 +18,43 @@ export const errorHandler = (
 ): void => {
   const { statusCode = 500, message, stack } = error;
   const isDevelopment = process.env.NODE_ENV === 'development';
+  const correlationId = getCorrelationId(req);
 
-  // Log detailed error information server-side (always include stack for debugging)
-  console.error('Error occurred:', {
+  // Structured error logging with context
+  const errorContext = {
+    correlationId,
     method: req.method,
     path: req.path,
+    url: req.originalUrl,
     statusCode,
     message,
-    stack, // Always log stack server-side for debugging
-    timestamp: new Date().toISOString(),
+    stack,
     userAgent: req.get('User-Agent'),
-    ip: req.ip
-  });
+    ip: req.ip || req.connection.remoteAddress,
+    userId: (req as any).user?.id || 'anonymous',
+    timestamp: new Date().toISOString(),
+    query: req.query,
+    body: sanitizeErrorBody(req.body),
+    isOperational: error.isOperational || false
+  };
+
+  // Log to appropriate logger based on severity
+  if (statusCode >= 500) {
+    logger.error('Server error occurred', errorContext);
+  } else if (statusCode >= 400) {
+    logger.warn('Client error occurred', errorContext);
+  } else {
+    logger.info('Error handled', errorContext);
+  }
+
+  // Log security-relevant errors
+  if (statusCode === 401 || statusCode === 403) {
+    securityLogger.warn('Security-related error', {
+      ...errorContext,
+      event: statusCode === 401 ? 'authentication_error' : 'authorization_error',
+      severity: 'medium'
+    });
+  }
 
   // Create safe error response (hide sensitive information in production)
   const errorResponse: any = {
@@ -37,7 +64,8 @@ export const errorHandler = (
       statusCode,
       timestamp: new Date().toISOString(),
       path: req.path,
-      method: req.method
+      method: req.method,
+      correlationId
     }
   };
 
@@ -91,9 +119,41 @@ export const asyncHandler = (fn: Function) => {
 };
 
 /**
+ * Sanitize request body for error logging
+ */
+const sanitizeErrorBody = (body: any): any => {
+  if (!body || typeof body !== 'object') return body;
+
+  const sanitized = { ...body };
+  const sensitiveFields = [
+    'password', 'token', 'secret', 'key', 'auth', 'authorization',
+    'cookie', 'session', 'csrf', 'api_key', 'apikey'
+  ];
+
+  for (const field of sensitiveFields) {
+    if (sanitized[field]) {
+      sanitized[field] = '[REDACTED]';
+    }
+  }
+
+  return sanitized;
+};
+
+/**
  * 404 handler - should be last middleware before error handler
  */
 export const notFoundHandler = (req: Request, _res: Response, next: NextFunction): void => {
+  const correlationId = getCorrelationId(req);
+  logger.warn('Route not found', {
+    correlationId,
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString(),
+    event: 'route_not_found'
+  });
+
   const error = createError(`Route ${req.originalUrl} not found`, 404);
   next(error);
 };

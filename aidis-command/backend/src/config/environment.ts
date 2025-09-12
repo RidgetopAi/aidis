@@ -29,6 +29,16 @@ export const config = {
     credentials: true,
   },
   
+  // Logging configuration
+  logging: {
+    level: process.env.LOG_LEVEL || 'info',
+    dbLogLevel: process.env.DB_LOG_LEVEL || 'warn',
+    enableConsole: process.env.NODE_ENV === 'development',
+    enableFileRotation: process.env.ENABLE_LOG_ROTATION !== 'false',
+    maxFileSize: process.env.LOG_MAX_FILE_SIZE || '20m',
+    maxFiles: process.env.LOG_MAX_FILES || '30d'
+  },
+
   // Application info
   app: {
     name: 'AIDIS Command Backend',

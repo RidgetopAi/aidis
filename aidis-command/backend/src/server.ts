@@ -4,8 +4,11 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import config from './config/environment';
+import { logger, morganLogStream } from './config/logger';
 import { initializeDatabase } from './database/connection';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { correlationMiddleware } from './middleware/correlationId';
+import { requestLoggingMiddleware } from './middleware/requestLogger';
 import { projectContextMiddleware } from './middleware/project';
 import { requestMonitoringMiddleware } from './middleware/requestMonitoring';
 import { webSocketService } from './services/websocket';
@@ -28,12 +31,16 @@ app.use(cors(config.cors));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
-if (config.nodeEnv === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// Correlation ID middleware (must be first)
+app.use(correlationMiddleware);
+
+// Morgan HTTP logging (integrated with Winston)
+app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined', {
+  stream: morganLogStream
+}));
+
+// Request/response logging middleware
+app.use(requestLoggingMiddleware);
 
 // Request monitoring middleware (applied to all API routes)
 app.use('/api', requestMonitoringMiddleware);
@@ -68,31 +75,50 @@ app.use(errorHandler);
  */
 async function startServer(): Promise<void> {
   try {
+    // Initialize logging
+    logger.info('Starting AIDIS Command Backend...', {
+      version: config.app.version,
+      environment: config.nodeEnv,
+      logLevel: config.logging.level,
+      dbLogLevel: config.logging.dbLogLevel
+    });
+
     // Initialize database connection
     await initializeDatabase();
-    console.log('✅ Database initialized successfully');
+    logger.info('Database initialized successfully');
 
     // Start HTTP server
     const server = app.listen(config.port, () => {
+      logger.info('AIDIS Command Backend started successfully', {
+        port: config.port,
+        environment: config.nodeEnv,
+        database: `${config.database.database}@${config.database.host}:${config.database.port}`,
+        endpoints: [
+          'GET /api/health - Server health',
+          'GET /api/db-status - Database status', 
+          'GET /api/version - Version info'
+        ]
+      });
+
       console.log('🚀 AIDIS Command Backend started');
       console.log(`📍 Server running on http://localhost:${config.port}`);
       console.log(`🌍 Environment: ${config.nodeEnv}`);
-      console.log(`💾 Database: ${config.database.database}@${config.database.host}:${config.database.port}`);
-      console.log('📋 Health endpoints:');
-      console.log(`   • GET /api/health - Server health`);
-      console.log(`   • GET /api/db-status - Database status`);
-      console.log(`   • GET /api/version - Version info`);
+      console.log(`📊 Logging: ${config.logging.level} (DB: ${config.logging.dbLogLevel})`);
     });
 
     // Initialize WebSocket server
     webSocketService.initialize(server);
-    console.log('🔌 WebSocket server initialized on /ws');
+    logger.info('WebSocket server initialized', { endpoint: '/ws' });
 
     // Graceful shutdown handling
     const shutdown = async (signal: string) => {
-      console.log(`\n🔄 Received ${signal}, shutting down gracefully...`);
+      logger.info(`Received ${signal}, shutting down gracefully...`, { 
+        signal,
+        timestamp: new Date().toISOString()
+      });
+
       server.close(() => {
-        console.log('✅ HTTP server closed');
+        logger.info('HTTP server closed successfully');
         process.exit(0);
       });
     };
@@ -101,6 +127,10 @@ async function startServer(): Promise<void> {
     process.on('SIGINT', () => shutdown('SIGINT'));
 
   } catch (error) {
+    logger.error('Failed to start server', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
