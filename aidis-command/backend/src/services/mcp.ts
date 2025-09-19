@@ -47,7 +47,7 @@ export class McpService {
       
       const options = {
         hostname: 'localhost',
-        port: process.env.AIDIS_MCP_PORT || 8080,
+        port: process.env.AIDIS_HTTP_PORT || process.env.AIDIS_MCP_PORT || process.env.PORT || 8080,
         path: `/mcp/tools/${toolName}`,
         method: 'POST',
         headers: {
@@ -68,38 +68,39 @@ export class McpService {
             if (res.statusCode === 200) {
               const parsed = JSON.parse(data);
               
-              // Handle AIDIS response format
-              if (parsed.isError) {
-                reject(new Error(parsed.message || 'AIDIS MCP tool error'));
-              } else {
-                // Extract the actual result from AIDIS response
-                let result = parsed.result !== undefined ? parsed.result : parsed;
-                
-                // Handle AIDIS text-based responses
-                if (result && result.content && result.content[0] && result.content[0].text) {
-                  const textResult = result.content[0].text;
-                  
-                  // Try to parse structured data from AIDIS text responses
-                  if (toolName === 'naming_stats') {
-                    result = this.parseNamingStats(textResult);
-                  } else if (toolName === 'naming_check') {
-                    result = this.parseNamingCheck(textResult);
-                  } else if (toolName === 'naming_suggest') {
-                    result = this.parseNamingSuggest(textResult);
-                  } else if (toolName === 'decision_search') {
-                    result = this.parseDecisionSearch(textResult);
-                  } else if (toolName === 'decision_stats') {
-                    result = this.parseDecisionStats(textResult);
-                  } else if (toolName === 'project_insights') {
-                    result = this.parseProjectInsights(textResult);
-                  } else {
-                    // For other tools, return the text as-is for now
-                    result = textResult;
-                  }
-                }
-                
-                resolve(result);
+              if (parsed.isError || parsed.success === false) {
+                const message = parsed.error || parsed.message || 'AIDIS MCP tool error';
+                reject(new Error(message));
+                return;
               }
+
+              // Extract the actual result from AIDIS response
+              let result = parsed.result !== undefined ? parsed.result : parsed;
+              
+              // Handle AIDIS text-based responses
+              if (result && result.content && result.content[0] && result.content[0].text) {
+                const textResult = result.content[0].text;
+                
+                // Try to parse structured data from AIDIS text responses
+                if (toolName === 'naming_stats') {
+                  result = this.parseNamingStats(textResult);
+                } else if (toolName === 'naming_check') {
+                  result = this.parseNamingCheck(textResult);
+                } else if (toolName === 'naming_suggest') {
+                  result = this.parseNamingSuggest(textResult);
+                } else if (toolName === 'decision_search') {
+                  result = this.parseDecisionSearch(textResult);
+                } else if (toolName === 'decision_stats') {
+                  result = this.parseDecisionStats(textResult);
+                } else if (toolName === 'project_insights') {
+                  result = this.parseProjectInsights(textResult);
+                } else {
+                  // For other tools, return the text as-is for now
+                  result = textResult;
+                }
+              }
+              
+              resolve(result);
             } else {
               reject(new Error(`HTTP ${res.statusCode}: ${data}`));
             }

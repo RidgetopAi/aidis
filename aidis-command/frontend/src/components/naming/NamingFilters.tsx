@@ -25,7 +25,7 @@ import { useProjectContext } from '../../contexts/ProjectContext';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface NamingFiltersProps {
   onSearch: () => void;

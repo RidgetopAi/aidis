@@ -1,20 +1,21 @@
 import { Pool, PoolConfig } from 'pg';
-import dotenv from 'dotenv';
 import { createDatabaseLogger } from '../middleware/databaseLogger';
 import { dbLogger } from '../config/logger';
+import { config } from '../config/environment';
 
-dotenv.config();
+// Environment variables are loaded by ../config/environment.ts
+// No need to call dotenv.config() again here
 
 /**
  * Database Configuration for AIDIS Command
  * Uses the same configuration as the main AIDIS MCP server
  */
 const dbConfig: PoolConfig = {
-  user: process.env.DATABASE_USER || 'ridgetop',
-  host: process.env.DATABASE_HOST || 'localhost', 
-  database: process.env.DATABASE_NAME || 'aidis_production',
-  password: process.env.DATABASE_PASSWORD || 'bandy',
-  port: parseInt(process.env.DATABASE_PORT || '5432'),
+  user: config.database.user,
+  host: config.database.host,
+  database: config.database.database,
+  password: config.database.password,
+  port: config.database.port,
   
   // Connection pool settings
   max: 10, // Maximum number of connections for admin tool

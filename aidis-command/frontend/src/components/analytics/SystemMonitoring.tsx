@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Typography, Row, Col, Progress, Space, Alert, Button, Statistic, Tag, Spin } from 'antd';
 import { 
   MonitorOutlined, ReloadOutlined, CheckCircleOutlined, 
@@ -7,7 +7,7 @@ import {
 } from '@ant-design/icons';
 import { MonitoringApi, SystemHealth, SystemMetrics } from '../../services/monitoringApi';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface SystemMonitoringProps {
   autoRefresh?: boolean;
@@ -25,7 +25,7 @@ const SystemMonitoring: React.FC<SystemMonitoringProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMonitoringData = async () => {
+  const fetchMonitoringData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -44,7 +44,7 @@ const SystemMonitoring: React.FC<SystemMonitoringProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMonitoringData();
@@ -53,7 +53,7 @@ const SystemMonitoring: React.FC<SystemMonitoringProps> = ({
       const interval = setInterval(fetchMonitoringData, refreshInterval);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval, fetchMonitoringData]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

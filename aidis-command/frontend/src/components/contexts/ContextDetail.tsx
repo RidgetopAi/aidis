@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Drawer, Typography, Space, Tag, Button, Descriptions, Card,
-  Tabs, List, message, Spin, Divider, Input, Form, Select
+  Tabs, List, message, Spin, Input, Form, Select
 } from 'antd';
 import {
-  EditOutlined, SaveOutlined, CloseOutlined, ShareAltOutlined,
+  EditOutlined, SaveOutlined, ShareAltOutlined,
   DeleteOutlined, TagsOutlined, CalendarOutlined, DatabaseOutlined,
   LinkOutlined, FolderOutlined, UserOutlined
 } from '@ant-design/icons';
@@ -17,7 +17,7 @@ import timezone from 'dayjs/plugin/timezone';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { TabPane } = Tabs;
 
@@ -42,20 +42,7 @@ const ContextDetail: React.FC<ContextDetailProps> = ({
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    if (context) {
-      form.setFieldsValue({
-        content: context.content,
-        tags: context.tags || [],
-        relevance_score: context.relevance_score
-      });
-      
-      // Load related contexts
-      loadRelatedContexts();
-    }
-  }, [context, form]);
-
-  const loadRelatedContexts = async () => {
+  const loadRelatedContexts = useCallback(async () => {
     if (!context) return;
     
     setLoadingRelated(true);
@@ -68,7 +55,18 @@ const ContextDetail: React.FC<ContextDetailProps> = ({
     } finally {
       setLoadingRelated(false);
     }
-  };
+  }, [context, setRelatedContexts]);
+
+  useEffect(() => {
+    if (context) {
+      form.setFieldsValue({
+        content: context.content,
+        tags: context.tags || [],
+        relevance_score: context.relevance_score
+      });
+      loadRelatedContexts();
+    }
+  }, [context, form, loadRelatedContexts]);
 
   const handleEdit = () => {
     setIsEditing(true);

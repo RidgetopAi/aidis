@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Typography, Spin, Alert, Button, Space, Tabs, Row, Col, Statistic, Progress, Tag } from 'antd';
 import { 
   RocketOutlined, TeamOutlined, CodeOutlined, BulbOutlined, 
@@ -7,7 +7,7 @@ import {
 } from '@ant-design/icons';
 import { ProjectApi, ProjectInsights as ProjectInsightsData } from '../../services/projectApi';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 
 interface ProjectInsightsProps {
@@ -38,7 +38,7 @@ const ProjectInsights: React.FC<ProjectInsightsProps> = ({ projectId, className 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchInsights = async () => {
+  const fetchInsights = useCallback(async () => {
     if (!projectId) return;
 
     setLoading(true);
@@ -54,11 +54,11 @@ const ProjectInsights: React.FC<ProjectInsightsProps> = ({ projectId, className 
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     fetchInsights();
-  }, [projectId]);
+  }, [fetchInsights]);
 
   const parseInsights = (rawInsights: string | any): ParsedInsights => {
     try {
@@ -66,8 +66,6 @@ const ProjectInsights: React.FC<ProjectInsightsProps> = ({ projectId, className 
       const insightsStr = typeof rawInsights === 'string' ? rawInsights : JSON.stringify(rawInsights);
       
       // Parse the text response from MCP tool
-      const lines = insightsStr.split('\n');
-      
       // Extract metrics using regex patterns
       const codeHealthMatch = insightsStr.match(/Code Health:.*?(\d+\.?\d*)/);
       const teamEfficiencyMatch = insightsStr.match(/Team Efficiency:.*?(\d+)/);

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Typography, Space, Tag, Avatar, Spin } from 'antd';
+import { Select, Space, Tag, Avatar, Spin } from 'antd';
 import { FolderOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Project } from '../../services/projectApi';
 import ProjectApi from '../../services/projectApi';
 import { useAuthContext } from '../../contexts/AuthContext';
 
-const { Text } = Typography;
 const { Option } = Select;
 
 interface ProjectSwitcherProps {

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Row, Col, Statistic, Spin, notification, Empty, DatePicker, Select } from 'antd';
 import { 
   Pie, 
   Column, 
   Line,
   Bar,
-  Histogram,
   Area
 } from '@ant-design/plots';
 import { 
@@ -85,8 +84,6 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
   const [sessionTrends, setSessionTrends] = useState<SessionTrends[]>([]);
   const [sessionAnalytics, setSessionAnalytics] = useState<SessionAnalytics | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [leadTimeData, setLeadTimeData] = useState<any>(null);
-  const [weeklyVelocityData, setWeeklyVelocityData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDateRange, setSelectedDateRange] = useState<[Date, Date]>(dateRange);
   const [viewMode, setViewMode] = useState<'basic' | 'advanced'>('advanced');
@@ -103,27 +100,28 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
     return (typeof v === 'number' && !Number.isNaN(v)) ? v : def;
   };
 
-  const loadAllData = async () => {
+  const dateRangeParams = useMemo(() => ({
+    start_date: dayjs(selectedDateRange[0]).format('YYYY-MM-DD'),
+    end_date: dayjs(selectedDateRange[1]).format('YYYY-MM-DD')
+  }), [selectedDateRange]);
+
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     try {
       const params = projectId ? { project_id: projectId } : {};
-      const dateParams = {
-        ...params,
-        start_date: dayjs(selectedDateRange[0]).format('YYYY-MM-DD'),
-        end_date: dayjs(selectedDateRange[1]).format('YYYY-MM-DD')
-      };
+      const paramsWithDate = { ...params, ...dateRangeParams };
 
       // Load all analytics data including sessions
       const [statsResponse, tasksResponse, sessionTrendsResponse, sessionAnalyticsResponse] = await Promise.all([
-        apiService.get<{success: boolean; data: {stats: TaskStats}}>('/tasks/stats', { params }),
-        apiService.get<{success: boolean; data: {tasks: Task[]}}>('/tasks', { params: { ...params, limit: 1000 } }),
+        apiService.get<{success: boolean; data: {stats: TaskStats}}>('/tasks/stats', { params: paramsWithDate }),
+        apiService.get<{success: boolean; data: {tasks: Task[]}}>('/tasks', { params: { ...paramsWithDate, limit: 1000 } }),
         apiService.get<{success: boolean; data: {stats: any[]}}>(
           '/sessions/stats-by-period', 
-          { params: { period: 'day', limit: 30, ...params } }
+          { params: { period: 'day', limit: 30, ...paramsWithDate } }
         ).catch(() => ({ data: { stats: [] } })), // Fallback if endpoint doesn't exist
         apiService.get<{success: boolean; data: any}>(
           '/sessions/analytics', 
-          { params }
+          { params: paramsWithDate }
         ).catch(() => ({ data: null })) // Fallback if endpoint doesn't exist
       ]);
 
@@ -173,9 +171,6 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
       } else {
         setSessionAnalytics(null);
       }
-      
-      setLeadTimeData(null); // Keep this disabled for now
-      setWeeklyVelocityData([]); // This will be calculated from session trends
     } catch (error) {
       console.error('Failed to load analytics data:', error);
       notification.error({
@@ -185,78 +180,60 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, dateRangeParams]);
 
-  useEffect(() => {
-    loadAllData();
-  }, [projectId, selectedDateRange]);
-
-  useEffect(() => {
-    const interval = refreshInterval > 0 ? setInterval(loadAllData, refreshInterval) : null;
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [refreshInterval]);
-
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" />
-        <p style={{ marginTop: '16px' }}>Loading task analytics...</p>
-      </div>
-    );
-  }
-
-  if (!stats || stats.total === 0) {
-    return (
-      <Empty
-        description="No task data available"
-        style={{ padding: '50px' }}
-      />
-    );
-  }
-
-  // Calculate lead time distribution from completed tasks
-  const calculateLeadTimeData = () => {
-    const completedTasks = tasks.filter(task => 
+  const leadTimeData = useMemo(() => {
+    const completedTasks = tasks.filter(task =>
       task.status === 'completed' && task.created_at && task.completed_at
     );
 
+    if (completedTasks.length === 0) {
+      return {
+        distribution: [],
+        stats: { totalTasks: 0, averageLeadTime: 0, p90LeadTime: 0 }
+      };
+    }
+
     const leadTimes = completedTasks.map(task => {
       const created = dayjs(task.created_at);
-      const completed = dayjs(task.completed_at);
-      return Math.max(1, completed.diff(created, 'days')); // Minimum 1 day
+      const completed = dayjs(task.completed_at!);
+      return Math.max(1, completed.diff(created, 'days'));
     });
 
-    // Create histogram bins
     const maxLeadTime = Math.max(...leadTimes, 30);
-    const bins: { range: string; count: number; color: string }[] = [];
     const binSize = Math.max(1, Math.ceil(maxLeadTime / 10));
+    const distribution = [] as Array<{ label: string; count: number; color: string }>;
 
     for (let i = 0; i <= maxLeadTime; i += binSize) {
       const rangeEnd = Math.min(i + binSize - 1, maxLeadTime);
       const count = leadTimes.filter(time => time >= i && time <= rangeEnd).length;
       const color = i <= 3 ? '#52c41a' : i <= 7 ? '#faad14' : '#ff4d4f';
-      bins.push({
-        range: `${i}-${rangeEnd}`,
+      distribution.push({
+        label: `${i}-${rangeEnd}`,
         count,
         color
       });
     }
 
-    // Calculate percentiles
-    const sortedTimes = leadTimes.sort((a, b) => a - b);
-    const p50 = sortedTimes[Math.floor(sortedTimes.length * 0.5)] || 0;
-    const p95 = sortedTimes[Math.floor(sortedTimes.length * 0.95)] || 0;
+    const sortedTimes = [...leadTimes].sort((a, b) => a - b);
+    const p90Index = Math.floor(sortedTimes.length * 0.9);
+    const average = sortedTimes.reduce((sum, val) => sum + val, 0) / sortedTimes.length;
 
-    return { bins, p50, p95, leadTimes };
-  };
+    return {
+      distribution,
+      stats: {
+        totalTasks: completedTasks.length,
+        averageLeadTime: average,
+        p90LeadTime: sortedTimes[p90Index] || 0
+      }
+    };
+  }, [tasks]);
 
-  // Calculate weekly velocity from session trends
-  const calculateWeeklyVelocity = () => {
-    if (!sessionTrends.length) return [];
+  const weeklyVelocityData = useMemo(() => {
+    if (!sessionTrends.length) {
+      return [];
+    }
 
-    // Group by week
     const weeklyData = sessionTrends.reduce((acc: Record<string, any>, trend) => {
       const week = dayjs(trend.date).startOf('week').format('YYYY-MM-DD');
       if (!acc[week]) {
@@ -280,38 +257,46 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
       contexts: week.contexts,
       sessions: week.sessions,
       avgProductivity: week.count > 0 ? week.productivity / week.count : 0,
-      target: 50 // Target contexts per week
+      target: 50
     }));
-  };
+  }, [sessionTrends]);
 
-  // Calculate cumulative flow data
-  const calculateCumulativeFlow = () => {
-    // Temporarily disabled - we're removing this distraction analytics
-    return [];
+  const cumulativeFlowData: Array<{
+    date: string;
+    'Todo': number;
+    'In Progress': number;
+    'Completed': number;
+    total: number;
+  }> = [];
 
-    let cumulativeTodo = 0;
-    let cumulativeInProgress = 0;
-    let cumulativeCompleted = 0;
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
-    return sessionTrends.map((trend, index) => {
-      // Simulate task flow - in real scenario, track actual status changes
-      const newTasks = Math.floor(trend.total_contexts * 0.3); // New contexts as tasks
-      const completedTasks = Math.floor(trend.productivity_score * 0.1);
-      const inProgressTasks = Math.floor(newTasks * 0.4);
+  useEffect(() => {
+    const interval = refreshInterval > 0 ? setInterval(loadAllData, refreshInterval) : null;
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [refreshInterval, loadAllData]);
 
-      cumulativeTodo += newTasks - inProgressTasks;
-      cumulativeInProgress += inProgressTasks - completedTasks;
-      cumulativeCompleted += completedTasks;
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <Spin size="large" />
+        <p style={{ marginTop: '16px' }}>Loading task analytics...</p>
+      </div>
+    );
+  }
 
-      return {
-        date: dayjs(trend.date).format('MMM DD'),
-        'Todo': Math.max(0, cumulativeTodo),
-        'In Progress': Math.max(0, cumulativeInProgress),
-        'Completed': cumulativeCompleted,
-        total: cumulativeTodo + cumulativeInProgress + cumulativeCompleted
-      };
-    });
-  };
+  if (!stats || stats.total === 0) {
+    return (
+      <Empty
+        description="No task data available"
+        style={{ padding: '50px' }}
+      />
+    );
+  }
 
   // Prepare data for charts
   const statusData = Object.entries(stats.by_status).map(([status, count]) => ({
@@ -328,10 +313,6 @@ const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({
     type: type.replace('_', ' ').toUpperCase(),
     count
   }));
-
-  // Advanced analytics data (now from real APIs)
-  // leadTimeData and weeklyVelocityData are now set from API responses
-  const cumulativeFlowData = calculateCumulativeFlow();
 
   // Status colors
   const statusColors = {

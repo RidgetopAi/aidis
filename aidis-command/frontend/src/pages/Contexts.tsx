@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Typography, Space, Row, Col, Card, List, Pagination, Spin, 
-  message, Button, Modal, Divider, Empty, Alert
+  message, Button, Modal, Empty, Alert
 } from 'antd';
 import {
   DatabaseOutlined, SearchOutlined, ReloadOutlined,
-  EyeOutlined, FilterOutlined, BarChartOutlined
+  FilterOutlined, BarChartOutlined
 } from '@ant-design/icons';
 import { useContextStore, useContextSearch, useContextSelection } from '../stores/contextStore';
-import { useProjectContext } from '../contexts/ProjectContext';
 import { ContextApi } from '../services/contextApi';
 import ContextCard from '../components/contexts/ContextCard';
 import ContextFilters from '../components/contexts/ContextFilters';
@@ -32,7 +31,6 @@ const Contexts: React.FC = () => {
     setSearchResults,
     setStats,
     setCurrentContext,
-    setLoading,
     setSearching,
     setError,
     setShowDetail,
@@ -45,8 +43,6 @@ const Contexts: React.FC = () => {
     updateSearchParam, 
     isFiltered 
   } = useContextSearch();
-
-  const { currentProject } = useProjectContext();
 
   const contextSelection = useContextSelection();
   const {
@@ -74,27 +70,22 @@ const Contexts: React.FC = () => {
     }
   }, [searchParams, setSearchResults, setSearching, setError]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const contextStats = await ContextApi.getContextStats();
       setStats(contextStats);
     } catch (err) {
       console.error('Failed to load context stats:', err);
     }
-  };
+  }, [setStats]);
 
-  // Load contexts on component mount and when search params change
   useEffect(() => {
     loadContexts();
+  }, [loadContexts]);
+
+  useEffect(() => {
     loadStats();
-  }, []);
-
-  // Oracle Phase 1: Removed manual project sync - handled by API interceptor
-  
-  // Auto-refresh contexts when searchParams change
-  useEffect(() => {
-    loadContexts();
-  }, [searchParams, loadContexts]);
+  }, [loadStats]);
 
   const handleSearch = useCallback(() => {
     loadContexts();

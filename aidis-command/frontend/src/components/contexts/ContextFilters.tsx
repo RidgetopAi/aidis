@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Card, Space, Input, Select, DatePicker, Button, Form, Row, Col,
-  Slider, Typography, Divider, Tag, Collapse
+  Card, Space, Input, Select, DatePicker, Button, Row, Col,
+  Slider, Typography, Tag, Collapse
 } from 'antd';
 import {
   SearchOutlined, FilterOutlined, ClearOutlined, 
-  CalendarOutlined, TagsOutlined, ProjectOutlined
+  TagsOutlined
 } from '@ant-design/icons';
 import { useContextSearch } from '../../stores/contextStore';
 // Oracle Phase 1: Removed useProjectContext - project scoping handled by API interceptor
@@ -41,7 +41,6 @@ const ContextFilters: React.FC<ContextFiltersProps> = ({ onSearch, loading }) =>
   const { searchParams, updateSearchParam, clearFilters, isFiltered } = useContextSearch();
   // Oracle Phase 1: Removed currentProject - project scoping handled by API interceptor
   const [localQuery, setLocalQuery] = useState(searchParams.query || '');
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Sync local query with global state when query is cleared externally
   useEffect(() => {
@@ -52,24 +51,16 @@ const ContextFilters: React.FC<ContextFiltersProps> = ({ onSearch, loading }) =>
 
   // Debounced search
   useEffect(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
     const timeout = setTimeout(() => {
       if (localQuery !== searchParams.query) {
         updateSearchParam('query', localQuery || undefined);
-        updateSearchParam('offset', 0); // Reset to first page
+        updateSearchParam('offset', 0);
         onSearch?.();
       }
     }, 300);
 
-    setSearchTimeout(timeout);
-
-    return () => {
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [localQuery]);
+    return () => clearTimeout(timeout);
+  }, [localQuery, searchParams.query, updateSearchParam, onSearch]);
 
   const handleDateRangeChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
     if (dates && dates[0] && dates[1]) {

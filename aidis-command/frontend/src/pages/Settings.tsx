@@ -2,12 +2,14 @@ import React from 'react';
 import { Typography, Card, Form, Input, Switch, Button, Space, Divider } from 'antd';
 import { SettingOutlined, UserOutlined, BellOutlined, SecurityScanOutlined } from '@ant-design/icons';
 import { useAuthContext } from '../contexts/AuthContext';
+import useFeatureFlag from '../hooks/useFeatureFlag';
 
 const { Title, Text } = Typography;
 
 const Settings: React.FC = () => {
   const { user } = useAuthContext();
   const [form] = Form.useForm();
+  const featureFlagUiEnabled = useFeatureFlag('phase1.featureFlags', false);
 
   const handleSave = (values: any) => {
     console.log('Settings saved:', values);
@@ -105,6 +107,15 @@ const Settings: React.FC = () => {
             Automatically save context changes without manual confirmation
           </Text>
         </Card>
+
+        {featureFlagUiEnabled && (
+          <Card title="Feature Flag Controls">
+            <Text>
+              Feature flag management UI is enabled. Future releases will surface toggle controls here once
+              rollout gates are ready.
+            </Text>
+          </Card>
+        )}
 
         {/* Security Settings */}
         <Card title={<><SecurityScanOutlined /> Security</>}>

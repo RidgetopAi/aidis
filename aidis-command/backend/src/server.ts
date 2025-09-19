@@ -13,6 +13,8 @@ import { projectContextMiddleware } from './middleware/project';
 import { requestMonitoringMiddleware } from './middleware/requestMonitoring';
 import { webSocketService } from './services/websocket';
 import apiRoutes from './routes';
+import { ensureFeatureFlags } from './utils/featureFlags';
+import { portManager } from './utils/portManager';
 
 /**
  * AIDIS Command Backend Server
@@ -20,6 +22,18 @@ import apiRoutes from './routes';
  */
 
 const app = express();
+const featureFlagsPromise = ensureFeatureFlags();
+
+app.get('/api/feature-flags', async (_req, res) => {
+  const featureFlags = await featureFlagsPromise;
+  const metadata = featureFlags.getMetadata();
+  res.json({
+    success: true,
+    version: metadata.version,
+    updatedAt: metadata.updatedAt,
+    flags: featureFlags.getAllFlags()
+  });
+});
 
 // Security middleware
 app.use(helmet());
@@ -87,21 +101,39 @@ async function startServer(): Promise<void> {
     await initializeDatabase();
     logger.info('Database initialized successfully');
 
-    // Start HTTP server
-    const server = app.listen(config.port, () => {
+    const featureFlags = await featureFlagsPromise;
+    app.locals.featureFlags = featureFlags;
+
+    // Get service name based on environment for port management
+    const serviceName = config.nodeEnv === 'production' ? 'aidis-command-prod' : 'aidis-command-dev';
+
+    // Get dynamic port assignment
+    const assignedPort = await portManager.assignPort(serviceName, config.port);
+
+    // Start HTTP server with dynamic port assignment
+    const server = app.listen(assignedPort, async () => {
+      const actualPort = (server.address() as any)?.port || assignedPort;
+
+      // Register the service with its actual port
+      await portManager.registerService(serviceName, actualPort, '/api/health');
+      await portManager.logPortConfiguration(serviceName, actualPort);
+
       logger.info('AIDIS Command Backend started successfully', {
-        port: config.port,
+        port: actualPort,
+        assignedPort,
+        serviceName,
         environment: config.nodeEnv,
         database: `${config.database.database}@${config.database.host}:${config.database.port}`,
         endpoints: [
           'GET /api/health - Server health',
-          'GET /api/db-status - Database status', 
+          'GET /api/db-status - Database status',
           'GET /api/version - Version info'
         ]
       });
 
       console.log('🚀 AIDIS Command Backend started');
-      console.log(`📍 Server running on http://localhost:${config.port}`);
+      console.log(`📍 Service: ${serviceName}`);
+      console.log(`📍 Server running on http://localhost:${actualPort}`);
       console.log(`🌍 Environment: ${config.nodeEnv}`);
       console.log(`📊 Logging: ${config.logging.level} (DB: ${config.logging.dbLogLevel})`);
     });
@@ -112,10 +144,13 @@ async function startServer(): Promise<void> {
 
     // Graceful shutdown handling
     const shutdown = async (signal: string) => {
-      logger.info(`Received ${signal}, shutting down gracefully...`, { 
+      logger.info(`Received ${signal}, shutting down gracefully...`, {
         signal,
         timestamp: new Date().toISOString()
       });
+
+      // Unregister from port registry
+      await portManager.unregisterService(serviceName);
 
       server.close(() => {
         logger.info('HTTP server closed successfully');

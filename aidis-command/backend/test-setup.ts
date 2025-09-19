@@ -50,4 +50,8 @@ async function testDatabaseSetup() {
   }
 }
 
-testDatabaseSetup();
+if (process.env.AIDIS_SKIP_DB_TESTS === 'true') {
+  console.log('⚠️ Skipping database setup tests (AIDIS_SKIP_DB_TESTS=true).');
+} else {
+  void testDatabaseSetup();
+}

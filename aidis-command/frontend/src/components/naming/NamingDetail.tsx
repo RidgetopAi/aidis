@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Drawer, Typography, Space, Tag, Button, Card, Row, Col, Progress, Divider, message } from 'antd';
+import { Drawer, Typography, Space, Tag, Button, Card, Row, Col, Progress, Divider } from 'antd';
 import { 
-  EditOutlined, DeleteOutlined, CloseOutlined, CodeOutlined, 
+  EditOutlined, DeleteOutlined, CodeOutlined, 
   FolderOutlined, CalendarOutlined, UserOutlined, CheckCircleOutlined,
   WarningOutlined, UsergroupAddOutlined, InfoCircleOutlined 
 } from '@ant-design/icons';

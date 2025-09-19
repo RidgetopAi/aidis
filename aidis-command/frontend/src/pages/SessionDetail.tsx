@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Typography, 
@@ -13,10 +13,8 @@ import {
   Tag,
   Descriptions,
   Tabs,
-  Alert,
   Empty,
-  List,
-  Divider
+  List
 } from 'antd';
 import { 
   ArrowLeftOutlined,
@@ -41,14 +39,7 @@ const SessionDetail: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [contextsLoading, setContextsLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadSession();
-      loadContexts();
-    }
-  }, [id]);
-
-  const loadSession = async () => {
+  const loadSession = useCallback(async () => {
     if (!id) return;
     
     setLoading(true);
@@ -62,9 +53,9 @@ const SessionDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
-  const loadContexts = async () => {
+  const loadContexts = useCallback(async () => {
     if (!id) return;
     
     setContextsLoading(true);
@@ -82,7 +73,14 @@ const SessionDetail: React.FC = () => {
     } finally {
       setContextsLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadSession();
+      loadContexts();
+    }
+  }, [id, loadSession, loadContexts]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Spin, Alert, Select, Space, InputNumber, Button } from 'antd';
 import { Heatmap } from '@ant-design/plots';
 import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
@@ -34,18 +34,7 @@ const SimilarityHeatmap: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   // Load datasets on component mount
-  useEffect(() => {
-    loadDatasets();
-  }, [currentProject]);
-
-  // Load similarity matrix when dataset is selected
-  useEffect(() => {
-    if (selectedDataset) {
-      loadSimilarityMatrix();
-    }
-  }, [selectedDataset, heatmapSize]);
-
-  const loadDatasets = async () => {
+  const loadDatasets = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -61,9 +50,9 @@ const SimilarityHeatmap: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentProject?.name, setDatasets, setError, setLoading, selectedDataset, setSelectedDataset]);
 
-  const loadSimilarityMatrix = async () => {
+  const loadSimilarityMatrix = useCallback(async () => {
     if (!selectedDataset) return;
 
     try {
@@ -81,7 +70,17 @@ const SimilarityHeatmap: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDataset, heatmapSize.rows, heatmapSize.cols, currentProject?.name, setError, setLoading, setSimilarityMatrix]);
+
+  useEffect(() => {
+    loadDatasets();
+  }, [loadDatasets]);
+
+  useEffect(() => {
+    if (selectedDataset) {
+      loadSimilarityMatrix();
+    }
+  }, [selectedDataset, heatmapSize, loadSimilarityMatrix]);
 
   const formatHeatmapData = (): HeatmapData[] => {
     if (!similarityMatrix) return [];

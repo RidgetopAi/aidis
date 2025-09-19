@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Tabs, Button, notification, Select } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Row, Col, Tabs, Button, notification } from 'antd';
 import { PlusOutlined, BarChartOutlined, ProjectOutlined } from '@ant-design/icons';
 import useWebSocketSingleton from '../hooks/useWebSocketSingleton';
 import { apiService } from '../services/api';
@@ -26,13 +26,6 @@ interface Task {
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
 }
 
 const { TabPane } = Tabs;
@@ -89,13 +82,10 @@ const Tasks: React.FC = () => {
           break;
         
         case 'tasks_bulk_updated':
-          setTasks(prev => {
-            const updatedTaskIds = message.data.tasks.map((t: Task) => t.id);
-            return prev.map(task => {
-              const updated = message.data.tasks.find((t: Task) => t.id === task.id);
-              return updated || task;
-            });
-          });
+          setTasks(prev => prev.map(task => {
+            const updated = message.data.tasks.find((t: Task) => t.id === task.id);
+            return updated || task;
+          }));
           break;
       }
     },
@@ -111,47 +101,7 @@ const Tasks: React.FC = () => {
   });
 
   // Load initial data
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  // Reload tasks when project selection changes
-  useEffect(() => {
-    if (currentProject) {
-      loadTasks();
-    }
-  }, [currentProject]);
-
-  // Cleanup effect for component unmounting
-  useEffect(() => {
-    return () => {
-      // Reset state on unmount to prevent stale state on revisit
-      setTasks([]);
-      setLoading(false);
-      setCreating(false);
-      setShowCreateForm(false);
-    };
-  }, []);
-
-  const loadInitialData = async () => {
-    setLoading(true);
-    try {
-      // Projects are now managed by ProjectContext, just load tasks
-      if (currentProject) {
-        await loadTasks();
-      }
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-      notification.error({
-        message: 'Loading Error',
-        description: 'Failed to load initial data.'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     if (!currentProject) return;
     
     setLoading(true);
@@ -169,7 +119,46 @@ const Tasks: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentProject]);
+
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (currentProject) {
+        await loadTasks();
+      }
+    } catch (error) {
+      console.error('Failed to load initial data:', error);
+      notification.error({
+        message: 'Loading Error',
+        description: 'Failed to load initial data.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [currentProject, loadTasks]);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Reload tasks when project selection changes
+  useEffect(() => {
+    if (currentProject) {
+      loadTasks();
+    }
+  }, [currentProject, loadTasks]);
+
+  // Cleanup effect for component unmounting
+  useEffect(() => {
+    return () => {
+      // Reset state on unmount to prevent stale state on revisit
+      setTasks([]);
+      setLoading(false);
+      setCreating(false);
+      setShowCreateForm(false);
+    };
+  }, []);
 
   const handleCreateTask = async (taskData: any) => {
     setCreating(true);
@@ -221,21 +210,6 @@ const Tasks: React.FC = () => {
         message: 'Deletion Error',
         description: 'Failed to delete task.'
       });
-    }
-  };
-
-  const handleBulkUpdateTasks = async (updates: Array<{ id: string; status: string }>) => {
-    try {
-      await apiService.post('/tasks/bulk-update', { updates });
-      // Updates will be handled via WebSocket
-    } catch (error) {
-      console.error('Failed to bulk update tasks:', error);
-      notification.error({
-        message: 'Update Error',
-        description: 'Failed to update task statuses.'
-      });
-      // Reload tasks to ensure consistency
-      loadTasks();
     }
   };
 

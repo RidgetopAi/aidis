@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Typography,
@@ -52,11 +52,7 @@ const SessionDetailView: React.FC<SessionDetailViewProps> = ({ session }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadContexts();
-  }, [session.id]);
-
-  const loadContexts = async () => {
+  const loadContexts = useCallback(async () => {
     try {
       setLoading(true);
       // Use the existing contexts API to get contexts for this session
@@ -79,7 +75,11 @@ const SessionDetailView: React.FC<SessionDetailViewProps> = ({ session }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session.id]);
+
+  useEffect(() => {
+    loadContexts();
+  }, [loadContexts]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();

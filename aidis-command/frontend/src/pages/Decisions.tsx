@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Typography, Space, Row, Col, Card, List, Pagination, Spin, 
-  message, Button, Modal, Divider, Empty, Alert
+  message, Button, Modal, Empty, Alert
 } from 'antd';
 import {
   BulbOutlined, SearchOutlined, ReloadOutlined,
-  EyeOutlined, FilterOutlined, BarChartOutlined,
-  PlusOutlined
+  FilterOutlined, BarChartOutlined
 } from '@ant-design/icons';
 import { useDecisionStore, useDecisionSearch, useDecisionSelection } from '../stores/decisionStore';
 import { useProjectContext } from '../contexts/ProjectContext';
@@ -30,7 +29,6 @@ const Decisions: React.FC = () => {
     setSearchResults,
     setStats,
     setCurrentDecision,
-    setLoading,
     setSearching,
     setError,
     setShowDetail,
@@ -38,7 +36,6 @@ const Decisions: React.FC = () => {
     clearError,
     addSelectedDecision,
     removeSelectedDecision,
-    selectAllDecisions,
     clearSelection
   } = useDecisionStore();
 
@@ -52,12 +49,6 @@ const Decisions: React.FC = () => {
 
   const decisionSelection = useDecisionSelection();
   const [showStatsModal, setShowStatsModal] = useState(false);
-
-  // Load decisions on component mount and when search params or project change
-  useEffect(() => {
-    loadDecisions();
-    loadStats();
-  }, [currentProject]); // Added currentProject dependency
 
   const loadDecisions = useCallback(async () => {
     setSearching(true);
@@ -80,7 +71,7 @@ const Decisions: React.FC = () => {
     }
   }, [searchParams, currentProject, setSearchResults, setSearching, setError]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const decisionStats = await DecisionApi.getDecisionStats();
       setStats(decisionStats);
@@ -100,7 +91,12 @@ const Decisions: React.FC = () => {
         total_projects: 0
       });
     }
-  };
+  }, [setStats]);
+
+  useEffect(() => {
+    loadDecisions();
+    loadStats();
+  }, [loadDecisions, loadStats]);
 
   const handleSearch = useCallback(() => {
     loadDecisions();
@@ -117,14 +113,6 @@ const Decisions: React.FC = () => {
       addSelectedDecision(id);
     } else {
       removeSelectedDecision(id);
-    }
-  };
-
-  const handleSelectAll = (allSelected: boolean) => {
-    if (allSelected) {
-      selectAllDecisions();
-    } else {
-      clearSelection();
     }
   };
 

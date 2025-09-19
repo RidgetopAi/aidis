@@ -29,6 +29,7 @@ import {
 import { useAuthContext } from '../contexts/AuthContext';
 import { useProjectContext } from '../contexts/ProjectContext';
 import ProjectSwitcher from './projects/ProjectSwitcher';
+import SectionErrorBoundary from './error/SectionErrorBoundary';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -246,7 +247,9 @@ const AppLayout: React.FC = () => {
             minHeight: 'calc(100vh - 180px)',
           }}
         >
-          <Outlet />
+          <SectionErrorBoundary section="App Layout">
+            <Outlet />
+          </SectionErrorBoundary>
         </Content>
       </Layout>
     </Layout>

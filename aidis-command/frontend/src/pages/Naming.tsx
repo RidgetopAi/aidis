@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Typography, Space, Row, Col, Card, List, Pagination, Spin, 
-  message, Button, Modal, Divider, Empty, Alert
+  message, Button, Modal, Empty, Alert
 } from 'antd';
 import {
   CodeOutlined, SearchOutlined, ReloadOutlined,
-  EyeOutlined, FilterOutlined, BarChartOutlined,
+  FilterOutlined, BarChartOutlined,
   PlusOutlined
 } from '@ant-design/icons';
 import { useNamingStore, useNamingSearch, useNamingSelection } from '../stores/namingStore';
@@ -31,7 +31,6 @@ const Naming: React.FC = () => {
     setSearchResults,
     setStats,
     setCurrentEntry,
-    setLoading,
     setSearching,
     setError,
     setShowDetail,
@@ -40,7 +39,6 @@ const Naming: React.FC = () => {
     clearError,
     addSelectedEntry,
     removeSelectedEntry,
-    selectAllEntries,
     clearSelection
   } = useNamingStore();
 
@@ -52,12 +50,6 @@ const Naming: React.FC = () => {
 
   const namingSelection = useNamingSelection();
   const [showStatsModal, setShowStatsModal] = useState(false);
-
-  // Load entries on component mount and when search params change
-  useEffect(() => {
-    loadEntries();
-    loadStats();
-  }, []);
 
   const loadEntries = useCallback(async () => {
     setSearching(true);
@@ -75,14 +67,19 @@ const Naming: React.FC = () => {
     }
   }, [searchParams, setSearchResults, setSearching, setError]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const namingStats = await NamingApi.getNamingStats();
       setStats(namingStats);
     } catch (err) {
       console.error('Failed to load naming stats:', err);
     }
-  };
+  }, [setStats]);
+
+  useEffect(() => {
+    loadEntries();
+    loadStats();
+  }, [loadEntries, loadStats]);
 
   const handleSearch = useCallback(() => {
     loadEntries();
@@ -99,14 +96,6 @@ const Naming: React.FC = () => {
       addSelectedEntry(id);
     } else {
       removeSelectedEntry(id);
-    }
-  };
-
-  const handleSelectAll = (allSelected: boolean) => {
-    if (allSelected) {
-      selectAllEntries();
-    } else {
-      clearSelection();
     }
   };
 

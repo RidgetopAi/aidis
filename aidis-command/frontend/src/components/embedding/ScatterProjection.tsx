@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Spin, Alert, Row, Col, Statistic, Select, Slider, Divider, Button } from 'antd';
 import { Scatter } from '@ant-design/plots';
 import { ReloadOutlined } from '@ant-design/icons';
@@ -41,13 +41,7 @@ const ScatterProjection: React.FC = () => {
     }
   }, [datasets.length, loadDatasets]);
 
-  useEffect(() => {
-    if (selectedDataset) {
-      fetchProjection();
-    }
-  }, [selectedDataset, algorithm, sampleSize]);
-
-  const fetchProjection = async () => {
+  const fetchProjection = useCallback(async () => {
     if (!selectedDataset) return;
     
     setLoading(true);
@@ -65,7 +59,13 @@ const ScatterProjection: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDataset, algorithm, sampleSize]);
+
+  useEffect(() => {
+    if (selectedDataset) {
+      fetchProjection();
+    }
+  }, [selectedDataset, fetchProjection]);
 
   const handleRefresh = () => {
     fetchProjection();

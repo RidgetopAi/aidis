@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Typography,
@@ -8,20 +8,13 @@ import {
   Spin,
   Alert,
   Tooltip,
-  Progress,
-  Space,
-  Statistic,
   Row,
   Col
 } from 'antd';
 import {
   EyeOutlined,
   ClockCircleOutlined,
-  ThunderboltOutlined,
   DatabaseOutlined,
-  FileTextOutlined,
-  CheckSquareOutlined,
-  TrophyOutlined,
   ReloadOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -62,31 +55,10 @@ const SessionSummaries: React.FC<SessionSummariesProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSummaries();
-  }, [projectId, limit]);
-
-  // Add periodic refresh for active sessions
-  useEffect(() => {
-    // Check if there are any active sessions
-    const hasActiveSessions = summaries.some(session => !session.ended_at);
-    
-    if (!hasActiveSessions) return;
-    
-    // Set up periodic refresh every 30 seconds for active sessions
-    const interval = setInterval(() => {
-      if (!loading) {
-        fetchSummaries(); // Refresh session data
-      }
-    }, 30000); // 30 seconds
-    
-    return () => clearInterval(interval);
-  }, [summaries, loading]);
-
-  const fetchSummaries = async () => {
+  const fetchSummaries = useCallback(async () => {
     try {
       setLoading(true);
-      const params: any = { limit };
+      const params: Record<string, unknown> = { limit };
       if (projectId) {
         params.project_id = projectId;
       }
@@ -100,7 +72,27 @@ const SessionSummaries: React.FC<SessionSummariesProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit, projectId]);
+
+  useEffect(() => {
+    fetchSummaries();
+  }, [fetchSummaries]);
+
+  useEffect(() => {
+    const hasActiveSessions = summaries.some(session => !session.ended_at);
+    if (!hasActiveSessions) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (!loading) {
+        fetchSummaries();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [summaries, loading, fetchSummaries]);
+
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -117,18 +109,6 @@ const SessionSummaries: React.FC<SessionSummariesProps> = ({
       return `${hours}h ${mins}m`;
     }
     return `${mins}m`;
-  };
-
-  const getProductivityColor = (score: number): string => {
-    if (score >= 20) return 'green';
-    if (score >= 10) return 'blue';
-    if (score >= 5) return 'orange';
-    return 'default';
-  };
-
-  const getCompletionRate = (created: number, completed: number): number => {
-    if (created === 0) return 0;
-    return Math.round((completed / created) * 100);
   };
 
   const columns: ColumnsType<SessionSummary> = [

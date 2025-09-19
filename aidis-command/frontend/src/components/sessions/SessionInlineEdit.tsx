@@ -91,6 +91,8 @@ const SessionInlineEdit: React.FC<SessionInlineEditProps> = ({
     }
   };
 
+  const [isHovered, setIsHovered] = useState(false);
+
   if (editing) {
     const InputComponent = field === 'description' ? TextArea : Input;
     
@@ -128,8 +130,6 @@ const SessionInlineEdit: React.FC<SessionInlineEditProps> = ({
       </div>
     );
   }
-
-  const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div

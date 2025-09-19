@@ -6,7 +6,6 @@ import {
 } from '@ant-design/icons';
 import { NamingApi } from '../../services/namingApi';
 import { NamingSuggestion } from './types';
-import { useProjectContext } from '../../contexts/ProjectContext';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -27,9 +26,7 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [availabilityResult, setAvailabilityResult] = useState<{ available: boolean; conflicts?: any[] } | null>(null);
   const [suggestions, setSuggestions] = useState<NamingSuggestion[]>([]);
-  const { currentProject } = useProjectContext();
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  const [currentName, setCurrentName] = useState<string>('');
 
   const typeOptions = [
     { label: 'Variable', value: 'variable' },
@@ -72,8 +69,6 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
   }, []);
 
   const handleNameChange = useCallback((name: string) => {
-    setCurrentName(name);
-    
     // Clear previous timeout
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
@@ -118,7 +113,6 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
       });
       
       form.resetFields();
-      setCurrentName('');
       setAvailabilityResult(null);
       setSuggestions([]);
       setCheckingAvailability(false);
@@ -137,7 +131,6 @@ const NamingRegister: React.FC<NamingRegisterProps> = ({
     }
     
     form.resetFields();
-    setCurrentName('');
     setAvailabilityResult(null);
     setSuggestions([]);
     setCheckingAvailability(false);

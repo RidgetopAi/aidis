@@ -11,5 +11,6 @@ const router = Router();
 router.get('/health', MonitoringController.getSystemHealth);
 router.get('/metrics', MonitoringController.getSystemMetrics);
 router.get('/trends', MonitoringController.getPerformanceTrends);
+router.post('/errors', MonitoringController.recordUiError);
 
 export default router;

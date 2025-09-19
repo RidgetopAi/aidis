@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Typography, 
@@ -40,14 +40,7 @@ const ProjectDetail: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadProject();
-      loadSessions();
-    }
-  }, [id]);
-
-  const loadProject = async () => {
+  const loadProject = useCallback(async () => {
     if (!id) return;
     
     setLoading(true);
@@ -61,9 +54,9 @@ const ProjectDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!id) return;
     
     setSessionsLoading(true);
@@ -76,7 +69,14 @@ const ProjectDetail: React.FC = () => {
     } finally {
       setSessionsLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadProject();
+      loadSessions();
+    }
+  }, [id, loadProject, loadSessions]);
 
   const handleViewSession = (session: Session) => {
     message.info(`Viewing session: ${session.id.slice(0, 8)}...`);

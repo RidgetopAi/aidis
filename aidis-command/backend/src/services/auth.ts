@@ -4,9 +4,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { db as pool } from '../database/connection';
 import { User, JWTPayload, LoginRequest, RegisterRequest } from '../types/auth';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'aidis-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const BCRYPT_ROUNDS = 12;
+// Helper function to get environment variable with AIDIS_ prefix and fallback
+function getEnvVar(aidisKey: string, legacyKey: string, defaultValue: string = ''): string {
+  return process.env[aidisKey] || process.env[legacyKey] || defaultValue;
+}
+
+function getEnvVarInt(aidisKey: string, legacyKey: string, defaultValue: string = '0'): number {
+  const value = getEnvVar(aidisKey, legacyKey, defaultValue);
+  return parseInt(value);
+}
+
+const JWT_SECRET = getEnvVar('AIDIS_JWT_SECRET', 'JWT_SECRET', 'aidis-secret-key-change-in-production');
+const JWT_EXPIRES_IN = getEnvVar('AIDIS_JWT_EXPIRES_IN', 'JWT_EXPIRES_IN', '24h');
+const BCRYPT_ROUNDS = getEnvVarInt('AIDIS_BCRYPT_ROUNDS', 'BCRYPT_ROUNDS', '12');
 
 export class AuthService {
   static async hashPassword(password: string): Promise<string> {

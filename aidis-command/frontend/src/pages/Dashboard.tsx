@@ -29,13 +29,6 @@ import SessionSummaries from '../components/analytics/SessionSummaries';
 
 const { Title, Text, Paragraph } = Typography;
 
-interface SystemStats {
-  contexts: number;
-  agents: number;
-  projects: number;
-  activeTasks: number;
-}
-
 const Dashboard: React.FC = () => {
   const { user } = useAuthContext();
   const { currentProject } = useProjectContext();

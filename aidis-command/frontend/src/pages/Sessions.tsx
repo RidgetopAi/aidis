@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Table,
@@ -25,7 +25,6 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useProjectContext } from '../contexts/ProjectContext';
 import { Session } from '../services/projectApi';
 import { apiService } from '../services/api';
 import SessionEditModal from '../components/sessions/SessionEditModal';
@@ -67,7 +66,7 @@ const Sessions: React.FC = () => {
   // const { currentProject } = useProjectContext(); // TODO: Use for project filtering
 
   // Load sessions and stats
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     setLoading(true);
     try {
       // Use same apiService as dashboard SessionSummaries
@@ -100,11 +99,11 @@ const Sessions: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [loadSessions]);
 
   // Session type icons and colors  
   const getTypeIcon = (type?: string) => {

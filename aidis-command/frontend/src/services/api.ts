@@ -1,5 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
+const UNASSIGNED_PROJECT_ID = '00000000-0000-0000-0000-000000000000';
+
 export interface User {
   id: string;
   username: string;
@@ -60,8 +62,11 @@ class ApiClient {
             const currentProjectData = localStorage.getItem('aidis_selected_project');
             if (currentProjectData) {
               const currentProject = JSON.parse(currentProjectData);
-              if (currentProject?.id) {
+              if (currentProject?.id && currentProject.id !== UNASSIGNED_PROJECT_ID) {
                 config.headers['X-Project-ID'] = currentProject.id;
+              } else if (currentProject?.id === UNASSIGNED_PROJECT_ID) {
+                localStorage.removeItem('aidis_selected_project');
+                localStorage.removeItem('aidis_current_project');
               }
             }
           } catch (error) {

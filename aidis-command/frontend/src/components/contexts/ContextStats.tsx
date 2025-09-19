@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Statistic, Row, Col, Progress, Tag, Space, Divider } from 'antd';
+import { Card, Statistic, Row, Col, Progress, Tag, Space } from 'antd';
 import {
   DatabaseOutlined, FileOutlined, ClockCircleOutlined,
   ProjectOutlined, TagOutlined, TrophyOutlined
@@ -25,8 +25,6 @@ const ContextStats: React.FC<ContextStatsProps> = ({ stats, loading }) => {
 
   // Calculate percentages for type distribution
   const typeEntries = Object.entries(stats.by_type).sort(([,a], [,b]) => b - a);
-  const maxTypeCount = Math.max(...Object.values(stats.by_type));
-
   // Calculate recent activity percentage
   const recentPercentage = stats.total_contexts > 0 
     ? Math.round((stats.recent_contexts / stats.total_contexts) * 100)

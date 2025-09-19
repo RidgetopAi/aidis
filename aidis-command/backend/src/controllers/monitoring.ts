@@ -62,4 +62,20 @@ export class MonitoringController {
       });
     }
   }
+
+  /**
+   * POST /api/monitoring/errors - Record UI error report
+   */
+  static async recordUiError(req: Request, res: Response): Promise<void> {
+    try {
+      monitoringService.recordUiError(req.body);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Record UI error failed:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to record UI error'
+      });
+    }
+  }
 }

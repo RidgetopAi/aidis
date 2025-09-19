@@ -30,7 +30,7 @@ import {
 import { useSessionRecovery } from '../../hooks/useSessionRecovery';
 import { formatDistanceToNow } from 'date-fns';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface SessionStatusProps {
   showDetails?: boolean;

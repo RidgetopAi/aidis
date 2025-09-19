@@ -102,7 +102,7 @@ class WebSocketService {
       }
 
       // Verify JWT token
-      jwt.verify(token, process.env.JWT_SECRET || 'aidis-secret-key-change-in-production');
+      jwt.verify(token, process.env.AIDIS_JWT_SECRET || process.env.JWT_SECRET || 'aidis-secret-key-change-in-production');
       return true;
     } catch (error) {
       console.log('WebSocket connection rejected: Invalid token', error);
@@ -121,7 +121,7 @@ class WebSocketService {
       }
 
       // Verify and decode token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'aidis-secret-key-change-in-production') as any;
+      const decoded = jwt.verify(token, process.env.AIDIS_JWT_SECRET || process.env.JWT_SECRET || 'aidis-secret-key-change-in-production') as any;
       ws.userId = decoded.userId;
       ws.isAuthenticated = true;
 

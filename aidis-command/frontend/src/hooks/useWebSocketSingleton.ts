@@ -225,13 +225,13 @@ const useWebSocketSingleton = (
     });
 
     if (ws) setSocket(ws);
-  }, [url, reconnectInterval, maxReconnectAttempts]);
+  }, [url, reconnectInterval, maxReconnectAttempts, manager]);
 
   const sendMessage = useCallback((message: any) => {
     if (url && !manager.send(url, message)) {
       console.warn('WebSocket is not connected. Message not sent:', message);
     }
-  }, [url]);
+  }, [url, manager]);
 
   const reconnect = useCallback(() => {
     shouldReconnectRef.current = true;
@@ -257,7 +257,7 @@ const useWebSocketSingleton = (
     
     setSocket(null);
     setConnectionState('CLOSED');
-  }, [url]);
+  }, [url, manager]);
 
   useEffect(() => {
     if (url) {
@@ -275,7 +275,7 @@ const useWebSocketSingleton = (
         manager.disconnect(url, listenersRef.current);
       }
     };
-  }, [url, connect]);
+  }, [url, connect, manager]);
 
   // Cleanup on unmount
   useEffect(() => {

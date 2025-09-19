@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Card, 
   Typography, 
@@ -6,12 +6,10 @@ import {
   Spin,
   Tabs,
   List,
-  Divider,
   Row,
   Col,
   Alert,
   Statistic,
-  Progress,
   Space
 } from 'antd';
 import {
@@ -26,14 +24,14 @@ import {
 import { apiService } from '../../services/api';
 import SessionInlineEdit from '../sessions/SessionInlineEdit';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { TabPane } = Tabs;
 
 interface SessionDetailProps {
   sessionId: string;
 }
 
-interface SessionDetail {
+interface SessionDetailData {
   id: string;
   project_id: string;
   project_name?: string;
@@ -106,18 +104,14 @@ interface SessionCodeComponent {
 }
 
 const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId }) => {
-  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [session, setSession] = useState<SessionDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSessionDetail();
-  }, [sessionId]);
-
-  const fetchSessionDetail = async () => {
+  const fetchSessionDetail = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiService.get<{success: boolean; data: {session: SessionDetail}}>(`/sessions/${sessionId}`);
+      const response = await apiService.get<{success: boolean; data: {session: SessionDetailData}}>(`/sessions/${sessionId}`);
       setSession(response.data.session);
       setError(null);
     } catch (err: any) {
@@ -126,7 +120,11 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
+
+  useEffect(() => {
+    fetchSessionDetail();
+  }, [fetchSessionDetail]);
 
   const handleSessionUpdate = (updatedSession: any) => {
     setSession(prevSession => prevSession ? { ...prevSession, ...updatedSession } : null);

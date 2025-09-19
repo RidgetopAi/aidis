@@ -50,12 +50,24 @@ interface HealthCheck {
   timestamp: number;
 }
 
+interface UiErrorReport {
+  name?: string;
+  message: string;
+  stack?: string;
+  componentStack?: string;
+  section?: string;
+  severity?: 'low' | 'medium' | 'high';
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}
+
 class MonitoringService {
   private healthChecks: Map<string, HealthCheck> = new Map();
   private requestCount = 0;
   private errorCount = 0;
   private responseTimes: number[] = [];
   private readonly maxHistorySize = 100;
+  private uiErrors: UiErrorReport[] = [];
 
   /**
    * Record API request metrics
@@ -259,6 +271,41 @@ class MonitoringService {
     this.errorCount = 0;
     this.responseTimes = [];
     this.healthChecks.clear();
+  }
+
+  recordUiError(report: Partial<UiErrorReport>) {
+    const normalized: UiErrorReport = {
+      message: report.message || 'Unknown UI error',
+      severity: report.severity || 'medium',
+      timestamp: report.timestamp || new Date().toISOString()
+    };
+
+    if (report.name !== undefined) {
+      normalized.name = report.name;
+    }
+
+    if (report.stack !== undefined) {
+      normalized.stack = report.stack;
+    }
+
+    if (report.componentStack !== undefined) {
+      normalized.componentStack = report.componentStack;
+    }
+
+    if (report.section !== undefined) {
+      normalized.section = report.section;
+    }
+
+    if (report.metadata !== undefined) {
+      normalized.metadata = report.metadata;
+    }
+
+    this.uiErrors.unshift(normalized);
+    if (this.uiErrors.length > 50) {
+      this.uiErrors.pop();
+    }
+
+    console.error('🔴 UI Error Reported', normalized);
   }
 }
 
