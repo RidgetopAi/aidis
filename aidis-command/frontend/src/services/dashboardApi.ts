@@ -112,5 +112,6 @@ class DashboardApi {
 const dashboardApiInstance = new DashboardApi();
 export default dashboardApiInstance;
 
-// Export the hooks for components that want to use React Query directly
-export { useDashboardStats, useProjectStats, useContextStats } from '../hooks/useDashboard';
+// TODO Phase 6: Re-export React Query hooks once migration is complete
+// Temporarily disabled to prevent naming conflicts with existing useDashboardStats
+// export { useDashboardStats, useProjectStats, useContextStats } from '../hooks/useDashboard';

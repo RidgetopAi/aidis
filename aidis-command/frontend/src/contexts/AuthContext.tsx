@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { message } from 'antd';
-import { apiClient, LoginRequest, User, ApiError } from '../services/api';
+import { useLogin, useLogout, useAuthCheck } from '../hooks/useAuth';
 import { useAuth } from '../stores/authStore';
+import { LoginRequest } from '../api/generated/models/LoginRequest';
+import { User } from '../api/generated/models/User';
 
 interface AuthContextType {
   user: User | null;
@@ -28,73 +30,71 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const auth = useAuth();
+  const authStore = useAuth();
+  const loginMutation = useLogin();
+  const logoutMutation = useLogout();
+  const { user, isAuthenticated, isLoading: checkingAuth } = useAuthCheck();
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Initialize auth state only once
   useEffect(() => {
-    // Initialize auth state from localStorage on app start
-    auth.initialize();
-    
-    // Verify token is still valid
-    const verifyToken = async () => {
-      if (auth.token) {
-        try {
-          auth.setLoading(true);
-          await apiClient.getCurrentUser();
-        } catch (error) {
-          console.warn('Token verification failed, logging out');
-          auth.logout();
-        } finally {
-          auth.setLoading(false);
-        }
-      }
-    };
-
-    verifyToken();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const login = async (credentials: LoginRequest) => {
-    try {
-      auth.setLoading(true);
-      auth.clearError();
-      
-      const response = await apiClient.login(credentials);
-      auth.setUser(response.user, response.token);
-      
-      message.success(`Welcome back, ${response.user?.firstName || response.user?.username || 'User'}!`);
-    } catch (error) {
-      const apiError = error as ApiError;
-      auth.setError(apiError.message || 'Login failed');
-      message.error(apiError.message || 'Login failed');
-      throw error;
-    } finally {
-      auth.setLoading(false);
+    if (!isInitialized) {
+      authStore.initialize();
+      setIsInitialized(true);
     }
-  };
+  }, [isInitialized]); // Fixed: Remove authStore dependency to prevent infinite loop
 
-  const logout = async () => {
+  // Clean up token conflicts only once
+  useEffect(() => {
+    localStorage.removeItem('auth-token');
+  }, []);
+
+  // Memoize callbacks to prevent unnecessary re-renders
+  const login = React.useCallback(async (credentials: LoginRequest) => {
     try {
-      auth.setLoading(true);
-      await apiClient.logout();
-      auth.logout();
+      authStore.clearError();
+      await loginMutation.mutateAsync(credentials);
+
+      // Get user info for welcome message
+      const userData = loginMutation.data?.user;
+      const displayName = userData?.username || 'User';
+      message.success(`Welcome back, ${displayName}!`);
+    } catch (error: any) {
+      const errorMessage = error?.body?.message || error?.message || 'Login failed';
+      authStore.setError(errorMessage);
+      message.error(errorMessage);
+      throw error;
+    }
+  }, [authStore, loginMutation]);
+
+  const logout = React.useCallback(async () => {
+    try {
+      await logoutMutation.mutateAsync();
       message.info('Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
-      // Force logout even if API call fails
-      auth.logout();
-    } finally {
-      auth.setLoading(false);
+      // Even if logout fails, clear local state
+      message.info('Logged out successfully');
     }
-  };
+  }, [logoutMutation]);
 
-  const contextValue: AuthContextType = {
-    user: auth.user,
-    isAuthenticated: auth.isAuthenticated,
-    isLoading: auth.isLoading,
-    error: auth.error,
+  const clearError = React.useCallback(() => {
+    authStore.clearError();
+  }, []); // Fixed: Empty dependency array since authStore.clearError is stable
+
+  // Determine loading state
+  const isLoading = !isInitialized || checkingAuth || loginMutation.isPending || logoutMutation.isPending;
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue: AuthContextType = React.useMemo(() => ({
+    user: user as User | null,
+    isAuthenticated,
+    isLoading,
+    error: authStore.error,
     login,
     logout,
-    clearError: auth.clearError,
-  };
+    clearError,
+  }), [user, isAuthenticated, isLoading, authStore.error, login, logout, clearError]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -22,28 +22,28 @@ export const useDashboardStats = (projectId?: string): UseDashboardStatsResult =
     try {
       setIsLoading(true);
       setError(null);
-      
+
       console.log('🔄 Fetching dashboard stats for project:', projectId || currentProject?.name);
-      
+
       const dashboardStats = await dashboardApi.getDashboardStats();
       setStats(dashboardStats);
-      
+
       console.log('✅ Dashboard stats loaded:', dashboardStats);
     } catch (error: any) {
       console.error('Failed to fetch dashboard stats:', error);
       setError(error.message || 'Failed to load dashboard data');
-      
+
       // Don't fallback to zeros - let the UI show the error
       setStats(null);
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, currentProject?.name]);
+  }, [projectId, currentProject?.id]); // Fixed: Use consistent dependency (id instead of name)
 
   // Auto-refetch when ProjectContext changes (Oracle requirement)
   useEffect(() => {
     fetchStats();
-  }, [fetchStats, currentProject?.id]); // Re-fetch when current project changes
+  }, [fetchStats]); // Simplified: fetchStats already includes project dependency
 
   return {
     stats,
