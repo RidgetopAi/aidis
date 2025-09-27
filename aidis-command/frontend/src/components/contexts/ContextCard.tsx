@@ -1,8 +1,9 @@
 import React from 'react';
-import { Card, Tag, Typography, Space, Tooltip, Checkbox, Button } from 'antd';
-import { 
+import { Card, Tag, Typography, Space, Tooltip, Checkbox, Button, Dropdown, Menu } from 'antd';
+import {
   EyeOutlined, EditOutlined, DeleteOutlined, ShareAltOutlined,
-  CalendarOutlined, FolderOutlined, TagsOutlined
+  CalendarOutlined, FolderOutlined, TagsOutlined,
+  FileMarkdownOutlined, CopyOutlined, FileTextOutlined
 } from '@ant-design/icons';
 import type { Context } from '../../types/context';
 import {
@@ -31,7 +32,7 @@ interface ContextCardProps {
   onView?: (context: Context) => void;
   onEdit?: (context: Context) => void;
   onDelete?: (context: Context) => void;
-  onShare?: (context: Context) => void;
+  onShare?: (context: Context, format: 'markdown' | 'text' | 'json') => void;
 }
 
 const ContextCard: React.FC<ContextCardProps> = ({
@@ -72,12 +73,40 @@ const ContextCard: React.FC<ContextCardProps> = ({
         onClick={() => onEdit?.(context)}
       />
     </Tooltip>,
-    <Tooltip title="Share" key="share">
-      <Button 
-        type="text" 
-        icon={<ShareAltOutlined />}
-        onClick={() => onShare?.(context)}
-      />
+    <Tooltip title="Export Context" key="share">
+      <Dropdown
+        overlay={
+          <Menu>
+            <Menu.Item
+              key="markdown"
+              icon={<FileMarkdownOutlined />}
+              onClick={() => onShare?.(context, 'markdown')}
+            >
+              Export as Markdown
+            </Menu.Item>
+            <Menu.Item
+              key="text"
+              icon={<CopyOutlined />}
+              onClick={() => onShare?.(context, 'text')}
+            >
+              Copy as Text
+            </Menu.Item>
+            <Menu.Item
+              key="json"
+              icon={<FileTextOutlined />}
+              onClick={() => onShare?.(context, 'json')}
+            >
+              Export as JSON
+            </Menu.Item>
+          </Menu>
+        }
+        trigger={['click']}
+      >
+        <Button
+          type="text"
+          icon={<ShareAltOutlined />}
+        />
+      </Dropdown>
     </Tooltip>,
     <Tooltip title="Delete" key="delete">
       <Button 

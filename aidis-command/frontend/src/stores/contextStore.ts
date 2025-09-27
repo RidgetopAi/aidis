@@ -49,6 +49,12 @@ interface ContextState {
 }
 
 const initialSearchParams: ContextSearchParams = {
+  query: undefined,
+  type: undefined,
+  tags: undefined,
+  min_similarity: undefined,
+  date_from: undefined,
+  date_to: undefined,
   limit: 20,
   offset: 0,
   sort_by: 'created_at',

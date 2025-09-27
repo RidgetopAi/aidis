@@ -116,6 +116,20 @@ const ContextFilters: React.FC<ContextFiltersProps> = ({ onSearch, loading }) =>
     updateSearchParam('offset', 0);
   }, [updateSearchParam]);
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Cancel any pending debounced search to avoid double execution
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      // Trigger immediate search
+      updateSearchParam('query', localQuery || undefined);
+      updateSearchParam('offset', 0);
+      onSearch?.();
+    }
+  }, [localQuery, updateSearchParam, onSearch]);
+
   const getSortValue = () => {
     return `${searchParams.sort_by || 'created_at'}-${searchParams.sort_order || 'desc'}`;
   };
@@ -164,69 +178,64 @@ const ContextFilters: React.FC<ContextFiltersProps> = ({ onSearch, loading }) =>
           prefix={<SearchOutlined />}
           value={localQuery}
           onChange={(e) => setLocalQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
           size="large"
           allowClear
         />
 
-        {/* Quick Filters Row */}
-        <Row gutter={16}>
-          <Col span={12} xs={24} sm={12} md={8} lg={8}>
-            <Select
-              placeholder="Filter by type"
-              style={{ width: '100%', minWidth: '200px' }}
-              value={searchParams.type}
-              onChange={(value) => {
-                updateSearchParam('type', value);
-                updateSearchParam('offset', 0);
-                onSearch?.();
-              }}
-              allowClear
-              dropdownMatchSelectWidth={false}
-            >
-              {CONTEXT_TYPES.map(type => (
-                <Option key={type.value} value={type.value}>
-                  <Tag color={getTypeColor(type.value)} style={{ margin: 0 }}>
-                    {type.label}
-                  </Tag>
-                </Option>
-              ))}
-            </Select>
-          </Col>
-          
-          <Col span={12} xs={24} sm={12} md={8} lg={8}>
-            <Select
-              placeholder="Sort by"
-              style={{ width: '100%', minWidth: '220px' }}
-              value={getSortValue()}
-              onChange={handleSortChange}
-              dropdownMatchSelectWidth={false}
-            >
-              {SORT_OPTIONS.map(option => (
-                <React.Fragment key={option.value}>
-                  <Option value={`${option.value}-desc`}>
-                    {option.label} (Newest First)
-                  </Option>
-                  <Option value={`${option.value}-asc`}>
-                    {option.label} (Oldest First)
-                  </Option>
-                </React.Fragment>
-              ))}
-            </Select>
-          </Col>
+        {/* Quick Filters - Vertical Stack */}
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Select
+            placeholder="Filter by type"
+            style={{ width: '100%' }}
+            value={searchParams.type}
+            onChange={(value) => {
+              updateSearchParam('type', value);
+              updateSearchParam('offset', 0);
+              onSearch?.();
+            }}
+            allowClear
+            dropdownMatchSelectWidth={false}
+          >
+            {CONTEXT_TYPES.map(type => (
+              <Option key={type.value} value={type.value}>
+                <Tag color={getTypeColor(type.value)} style={{ margin: 0 }}>
+                  {type.label}
+                </Tag>
+              </Option>
+            ))}
+          </Select>
 
-          <Col span={12} xs={24} sm={24} md={8} lg={8}>
-            <RangePicker
-              style={{ width: '100%', minWidth: '240px' }}
-              placeholder={['From Date', 'To Date']}
-              value={[
-                searchParams.date_from ? dayjs(searchParams.date_from) : null,
-                searchParams.date_to ? dayjs(searchParams.date_to) : null
-              ]}
-              onChange={handleDateRangeChange}
-              format="YYYY-MM-DD"
-            />
-          </Col>
-        </Row>
+          <Select
+            placeholder="Sort by"
+            style={{ width: '100%' }}
+            value={getSortValue()}
+            onChange={handleSortChange}
+            dropdownMatchSelectWidth={false}
+          >
+            {SORT_OPTIONS.map(option => (
+              <React.Fragment key={option.value}>
+                <Option value={`${option.value}-desc`}>
+                  {option.label} (Newest First)
+                </Option>
+                <Option value={`${option.value}-asc`}>
+                  {option.label} (Oldest First)
+                </Option>
+              </React.Fragment>
+            ))}
+          </Select>
+
+          <RangePicker
+            style={{ width: '100%' }}
+            placeholder={['From Date', 'To Date']}
+            value={[
+              searchParams.date_from ? dayjs(searchParams.date_from) : null,
+              searchParams.date_to ? dayjs(searchParams.date_to) : null
+            ]}
+            onChange={handleDateRangeChange}
+            format="YYYY-MM-DD"
+          />
+        </Space>
 
         {/* Advanced Filters (Collapsible) */}
         <Collapse ghost>

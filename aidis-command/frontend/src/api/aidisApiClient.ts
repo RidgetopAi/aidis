@@ -210,13 +210,12 @@ export class AidisApiClient {
           errorData = { message: errorText };
         }
 
-        throw {
-          message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
-          code: `HTTP_${response.status}`,
-          details: errorData,
-          requestId,
-          timestamp: new Date().toISOString()
-        };
+        const error = new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        (error as any).code = `HTTP_${response.status}`;
+        (error as any).details = errorData;
+        (error as any).requestId = requestId;
+        (error as any).timestamp = new Date().toISOString();
+        throw error;
       }
 
       const responseText = await response.text();
@@ -225,13 +224,12 @@ export class AidisApiClient {
       try {
         responseData = JSON.parse(responseText);
       } catch {
-        throw {
-          message: 'Invalid JSON response from server',
-          code: 'PARSE_ERROR',
-          details: { responseText },
-          requestId,
-          timestamp: new Date().toISOString()
-        };
+        const error = new Error('Invalid JSON response from server');
+        (error as any).code = 'PARSE_ERROR';
+        (error as any).details = { responseText };
+        (error as any).requestId = requestId;
+        (error as any).timestamp = new Date().toISOString();
+        throw error;
       }
 
       // Validate response if requested
@@ -251,13 +249,12 @@ export class AidisApiClient {
 
     } catch (error: any) {
       if (error?.name === 'AbortError') {
-        throw {
-          message: `Request timeout after ${this.timeout}ms`,
-          code: 'TIMEOUT',
-          details: { timeout: this.timeout, url },
-          requestId,
-          timestamp: new Date().toISOString()
-        };
+        const error = new Error(`Request timeout after ${this.timeout}ms`);
+        (error as any).code = 'TIMEOUT';
+        (error as any).details = { timeout: this.timeout, url };
+        (error as any).requestId = requestId;
+        (error as any).timestamp = new Date().toISOString();
+        throw error;
       }
       throw error;
     }
@@ -296,13 +293,12 @@ export class AidisApiClient {
       );
 
       if (!response.success) {
-        throw {
-          message: response.error || `Tool ${toolName} failed`,
-          code: 'TOOL_ERROR',
-          details: { toolName, args, response },
-          requestId: response.requestId,
-          timestamp: new Date().toISOString()
-        };
+        const error = new Error(response.error || `Tool ${toolName} failed`);
+        (error as any).code = 'TOOL_ERROR';
+        (error as any).details = { toolName, args, response };
+        (error as any).requestId = response.requestId;
+        (error as any).timestamp = new Date().toISOString();
+        throw error;
       }
 
       return response.data;

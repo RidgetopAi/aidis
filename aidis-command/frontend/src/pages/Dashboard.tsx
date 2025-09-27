@@ -31,6 +31,13 @@ import MonitoringTrends from '../components/analytics/MonitoringTrends';
 import SessionSummaries from '../components/analytics/SessionSummaries';
 import AidisV2ApiTest from '../components/testing/AidisV2ApiTest';
 import ErrorBoundaryDemo from '../components/testing/ErrorBoundaryDemo';
+// Phase 3: AI Comprehension Dashboard Integration
+import AIComprehensionMetrics from '../components/analytics/AIComprehensionMetrics';
+import CodeHealthCards from '../components/analytics/CodeHealthCards';
+import CodeTrendCharts from '../components/analytics/CodeTrendCharts';
+import HotspotDetection from '../components/analytics/HotspotDetection';
+import ComponentDeepDive from '../components/analytics/ComponentDeepDive';
+import LiveUpdateManager from '../components/analytics/LiveUpdateManager';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -163,6 +170,69 @@ const Dashboard: React.FC = () => {
       {/* Project Insights */}
       {currentProject && (
         <ProjectInsights projectId={currentProject.id} />
+      )}
+
+      {/* Phase 3: AI Comprehension Dashboard */}
+      {currentProject && (
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          {/* Header for AI Comprehension Section */}
+          <div>
+            <Title level={3} style={{ marginBottom: '8px' }}>
+              🧠 AI Code Health & Comprehension Analytics
+            </Title>
+            <Text type="secondary">
+              Phase 2 Enhanced AST Analysis with Real-time Intelligence
+            </Text>
+          </div>
+
+          {/* Live Update Manager */}
+          <Row gutter={[24, 24]}>
+            <Col xs={24} lg={8}>
+              <LiveUpdateManager
+                onRefreshTrigger={() => {
+                  // Trigger refresh for all AI components
+                  refetch();
+                }}
+              />
+            </Col>
+            <Col xs={24} lg={16}>
+              <CodeHealthCards projectId={currentProject.id} />
+            </Col>
+          </Row>
+
+          {/* AI Comprehension Metrics for Sample File */}
+          <AIComprehensionMetrics
+            projectId={currentProject.id}
+            filePath="/sample/project/src/utils/helpers.ts"
+            refreshInterval={30000}
+          />
+
+          {/* Code Trends and Hotspots */}
+          <Row gutter={[24, 24]}>
+            <Col xs={24} xl={14}>
+              <CodeTrendCharts
+                projectId={currentProject.id}
+                height={350}
+              />
+            </Col>
+            <Col xs={24} xl={10}>
+              <HotspotDetection
+                projectId={currentProject.id}
+                onHotspotSelect={(hotspot) => {
+                  console.log('Selected hotspot:', hotspot);
+                }}
+              />
+            </Col>
+          </Row>
+
+          {/* Component Deep Dive */}
+          <ComponentDeepDive
+            filePath="/sample/project/src/utils/helpers.ts"
+            onComponentSelect={(component) => {
+              console.log('Selected component:', component);
+            }}
+          />
+        </Space>
       )}
 
       {/* Session Analytics */}
