@@ -54,6 +54,33 @@ const Contexts: React.FC = () => {
     isFiltered
   } = useContextSearch();
 
+  // Stabilize searchParams to prevent unnecessary re-renders and API calls
+  const stableSearchParams = useMemo(() => ({
+    query: searchParams.query,
+    type: searchParams.type,
+    tags: searchParams.tags,
+    project_id: searchParams.project_id,
+    date_from: searchParams.date_from,
+    date_to: searchParams.date_to,
+    min_similarity: searchParams.min_similarity,
+    sort_by: searchParams.sort_by,
+    sort_order: searchParams.sort_order,
+    limit: searchParams.limit,
+    offset: searchParams.offset,
+  }), [
+    searchParams.query,
+    searchParams.type,
+    searchParams.tags,
+    searchParams.project_id,
+    searchParams.date_from,
+    searchParams.date_to,
+    searchParams.min_similarity,
+    searchParams.sort_by,
+    searchParams.sort_order,
+    searchParams.limit,
+    searchParams.offset,
+  ]);
+
   const contextSelection = useContextSelection();
   const {
     addSelectedContext,
@@ -72,7 +99,7 @@ const Contexts: React.FC = () => {
     isLoading: contextsLoading,
     error: contextsError,
     refetch: refetchContexts,
-  } = useContextSearchQuery(searchParams, {
+  } = useContextSearchQuery(stableSearchParams, {
     placeholderData: (previous) => previous ?? undefined,
   });
 
@@ -90,9 +117,8 @@ const Contexts: React.FC = () => {
       updateSearchParam('project_id', newProjectId);
       clearSelection();
     }
-    // Also refetch stats when project changes
-    refetchStats();
-  }, [currentProject?.id, searchParams.project_id, updateSearchParam, clearSelection, refetchStats]);
+    // React Query will automatically refetch stats when project_id changes
+  }, [currentProject?.id, searchParams.project_id, updateSearchParam, clearSelection]);
 
   // Optimized: Consolidate loading states
   useEffect(() => {
@@ -131,7 +157,8 @@ const Contexts: React.FC = () => {
     if (statsData) {
       setStats(statsData);
     }
-  }, [contextsData, statsData, searchParams.limit, searchParams.offset, setSearchResults, setStats]);
+    // searchParams changes are already tracked by the query hooks
+  }, [contextsData, statsData, setSearchResults, setStats]);
 
   const handleSearch = useCallback(() => {
     refetchContexts();

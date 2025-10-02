@@ -19,6 +19,7 @@ export interface SessionTrend {
   total_duration_minutes: number;
   total_contexts: number;
   total_tokens_used: number;
+  total_tasks_created: number;
   average_duration_minutes: number;
 }
 
@@ -60,7 +61,7 @@ export class SessionAnalyticsService {
             COALESCE(s.total_tokens, 0) AS tokens_used,
             EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60 as duration_minutes,
             COUNT(c.id) as context_count
-          FROM user_sessions s
+          FROM sessions s
           LEFT JOIN contexts c ON s.id = c.session_id
           ${whereClause}
           GROUP BY s.id, s.project_id, s.started_at, s.ended_at, tokens_used
@@ -117,28 +118,30 @@ export class SessionAnalyticsService {
       )::date as date
       ),
       daily_sessions AS (
-      SELECT 
+      SELECT
       DATE(s.started_at) as session_date,
       COUNT(*) as session_count,
       SUM(EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60) as total_duration_minutes,
       SUM(COALESCE(s.total_tokens, 0)) as total_tokens_used,
-      COUNT(c.id) as total_contexts
-      FROM user_sessions s
+      COUNT(c.id) as total_contexts,
+      COALESCE(SUM(s.tasks_created), 0) as total_tasks_created
+      FROM sessions s
       LEFT JOIN contexts c ON s.id = c.session_id
       WHERE s.started_at >= CURRENT_DATE - INTERVAL '${days} days'
       ${whereClause}
           GROUP BY DATE(s.started_at)
         )
-        SELECT 
+        SELECT
           d.date,
           COALESCE(ds.session_count, 0) as session_count,
           COALESCE(ds.total_duration_minutes, 0) as total_duration_minutes,
           COALESCE(ds.total_contexts, 0) as total_contexts,
           COALESCE(ds.total_tokens_used, 0) as total_tokens_used,
-          CASE 
-            WHEN COALESCE(ds.session_count, 0) > 0 
-            THEN COALESCE(ds.total_duration_minutes, 0) / ds.session_count 
-            ELSE 0 
+          COALESCE(ds.total_tasks_created, 0) as total_tasks_created,
+          CASE
+            WHEN COALESCE(ds.session_count, 0) > 0
+            THEN COALESCE(ds.total_duration_minutes, 0) / ds.session_count
+            ELSE 0
           END as average_duration_minutes
         FROM date_series d
         LEFT JOIN daily_sessions ds ON d.date = ds.session_date
@@ -153,6 +156,7 @@ export class SessionAnalyticsService {
         total_duration_minutes: Math.round(parseFloat(row.total_duration_minutes) || 0),
         total_contexts: parseInt(row.total_contexts) || 0,
         total_tokens_used: parseInt(row.total_tokens_used) || 0,
+        total_tasks_created: parseInt(row.total_tasks_created) || 0,
         average_duration_minutes: Math.round(parseFloat(row.average_duration_minutes) || 0)
       }));
     } catch (error) {
@@ -184,7 +188,7 @@ export class SessionAnalyticsService {
             (COUNT(c.id) * 2.0 + 
              LEAST(EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60 / 60, 8) * 3.0 + 
              LEAST(COALESCE(s.total_tokens, 0) / 1000.0, 10) * 1.0) as productivity_score
-          FROM user_sessions s
+          FROM sessions s
           LEFT JOIN contexts c ON s.id = c.session_id
           LEFT JOIN projects p ON s.project_id = p.id
           ${whereClause}
@@ -239,7 +243,7 @@ export class SessionAnalyticsService {
             EXTRACT(HOUR FROM s.started_at) as hour,
             SUM(COALESCE(s.total_tokens, 0)) as total_tokens,
             COUNT(*) as session_count
-          FROM user_sessions s
+          FROM sessions s
           ${whereClause}
           GROUP BY EXTRACT(HOUR FROM s.started_at)
         ),
@@ -313,7 +317,7 @@ export class SessionAnalyticsService {
       // Get total count for pagination
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM user_sessions s
+        FROM sessions s
         LEFT JOIN projects p ON s.project_id = p.id
         ${whereClause}
       `;
@@ -321,22 +325,28 @@ export class SessionAnalyticsService {
       const countResult = await pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total) || 0;
       
-      // Get sessions with details
+      // Get sessions with details (TS006-2: includes token tracking columns, TS007-2: includes activity columns)
       const sessionsQuery = `
-        SELECT 
+        SELECT
           s.id,
           s.project_id,
           s.title,
           s.description,
           s.started_at,
           s.ended_at,
+          s.input_tokens,
+          s.output_tokens,
           s.total_tokens,
+          s.tasks_created,
+          s.tasks_updated,
+          s.tasks_completed,
+          s.contexts_created,
           s.total_characters,
           p.name as project_name,
           EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60 as duration_minutes,
           COUNT(c.id) as contexts_count,
           COUNT(t.id) as tasks_count,
-          CASE 
+          CASE
             WHEN s.ended_at IS NULL THEN 'active'
             WHEN s.ended_at > CURRENT_TIMESTAMP - INTERVAL '1 hour' THEN 'inactive'
             ELSE 'disconnected'
@@ -346,13 +356,14 @@ export class SessionAnalyticsService {
             WHEN s.session_type = 'web' THEN 'web'
             ELSE 'api'
           END as type
-        FROM user_sessions s
+        FROM sessions s
         LEFT JOIN projects p ON s.project_id = p.id
         LEFT JOIN contexts c ON s.id = c.session_id
         LEFT JOIN tasks t ON s.project_id = t.project_id AND s.id = t.created_by
         ${whereClause}
-        GROUP BY s.id, s.project_id, s.title, s.description, s.started_at, s.ended_at, 
-                 s.total_tokens, s.total_characters, p.name, s.session_type
+        GROUP BY s.id, s.project_id, s.title, s.description, s.started_at, s.ended_at,
+                 s.input_tokens, s.output_tokens, s.total_tokens, s.tasks_created, s.tasks_updated,
+                 s.tasks_completed, s.contexts_created, s.total_characters, p.name, s.session_type
         ORDER BY s.started_at DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
@@ -405,7 +416,7 @@ export class SessionAnalyticsService {
           COUNT(CASE WHEN s.ended_at IS NULL THEN 1 END) as active_sessions,
           COUNT(CASE WHEN DATE(s.started_at) = CURRENT_DATE THEN 1 END) as today_sessions,
           COALESCE(AVG(EXTRACT(EPOCH FROM (COALESCE(s.ended_at, CURRENT_TIMESTAMP) - s.started_at)) / 60), 0) as avg_duration_minutes
-        FROM user_sessions s
+        FROM sessions s
         ${whereClause}
       `;
       

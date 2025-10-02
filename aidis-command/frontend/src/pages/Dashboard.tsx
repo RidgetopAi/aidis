@@ -209,13 +209,16 @@ const Dashboard: React.FC = () => {
 
           {/* Code Trends and Hotspots */}
           <Row gutter={[24, 24]}>
-            <Col xs={24} xl={14}>
+            <Col xs={24}>
               <CodeTrendCharts
                 projectId={currentProject.id}
                 height={350}
               />
             </Col>
-            <Col xs={24} xl={10}>
+          </Row>
+
+          <Row gutter={[24, 24]}>
+            <Col xs={24}>
               <HotspotDetection
                 projectId={currentProject.id}
                 onHotspotSelect={(hotspot) => {

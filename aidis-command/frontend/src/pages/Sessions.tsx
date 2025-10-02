@@ -98,23 +98,37 @@ const Sessions: React.FC = () => {
     }
   }, [error]);
 
-  // Session type icons and colors  
+  // Session type icons and colors
   const getTypeIcon = (type?: string) => {
     switch (type) {
-      case 'claude-code-agent': return '🤖';
-      case 'web': return '🌐';
+      case 'claude-code-agent':
+      case 'claude-code': return '🤖';
+      case 'cline': return '🔧';
+      case 'roo-code': return '🦘';
+      case 'windsurf': return '🌊';
+      case 'cursor': return '✏️';
+      case 'web':
+      case 'web-ui': return '🌐';
       case 'claude': return '🧠';
-      case 'mcp': return '🔌';
+      case 'mcp':
+      case 'mcp-client': return '🔌';
       default: return '❓';
     }
   };
 
   const getTypeColor = (type?: string) => {
     switch (type) {
-      case 'claude-code-agent': return 'blue';
-      case 'web': return 'green';
+      case 'claude-code-agent':
+      case 'claude-code': return 'blue';
+      case 'cline': return 'green';
+      case 'roo-code': return 'orange';
+      case 'windsurf': return 'cyan';
+      case 'cursor': return 'purple';
+      case 'web':
+      case 'web-ui': return 'geekblue';
       case 'claude': return 'purple';
-      case 'mcp': return 'orange';
+      case 'mcp':
+      case 'mcp-client': return 'gray';
       default: return 'default';
     }
   };
@@ -191,12 +205,53 @@ const Sessions: React.FC = () => {
     {
       title: 'Activity',
       key: 'activity',
+      render: (record: SessionItem) => {
+        const tasksTotal = (record.tasks_created || 0);
+        const contextsTotal = (record.contexts_created || record.context_count || 0);
+        const totalActivity = tasksTotal + contextsTotal;
+
+        return (
+          <Tooltip
+            title={
+              <>
+                <div>Tasks: {record.tasks_created || 0} created, {record.tasks_updated || 0} updated, {record.tasks_completed || 0} completed</div>
+                <div>Contexts: {contextsTotal} created</div>
+              </>
+            }
+          >
+            <Space size="small">
+              {tasksTotal > 0 && (
+                <>
+                  <Badge count={tasksTotal} color="purple" />
+                  <Text type="secondary">tasks</Text>
+                </>
+              )}
+              {contextsTotal > 0 && (
+                <>
+                  <Badge count={contextsTotal} color="blue" />
+                  <Text type="secondary">contexts</Text>
+                </>
+              )}
+              {totalActivity === 0 && <Text type="secondary">No activity</Text>}
+            </Space>
+          </Tooltip>
+        );
+      },
+      sorter: (a: SessionItem, b: SessionItem) => {
+        const totalA = (a.tasks_created || 0) + (a.contexts_created || a.context_count || 0);
+        const totalB = (b.tasks_created || 0) + (b.contexts_created || b.context_count || 0);
+        return totalA - totalB;
+      },
+    },
+    {
+      title: 'Tokens',
+      key: 'tokens',
       render: (record: SessionItem) => (
-        <Space>
-          <Badge count={record.context_count || 0} color="blue" />
-          <Text type="secondary">contexts</Text>
-        </Space>
+        <Tooltip title={`Input: ${(record.input_tokens || 0).toLocaleString()} | Output: ${(record.output_tokens || 0).toLocaleString()}`}>
+          <Text>{(record.total_tokens || 0).toLocaleString()}</Text>
+        </Tooltip>
       ),
+      sorter: (a: SessionItem, b: SessionItem) => (a.total_tokens || 0) - (b.total_tokens || 0),
     },
     {
       title: 'Last Activity',
