@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Row, Col, Tabs, Button, notification } from 'antd';
 import { PlusOutlined, BarChartOutlined, ProjectOutlined } from '@ant-design/icons';
 import useWebSocketSingleton from '../hooks/useWebSocketSingleton';
@@ -38,7 +38,10 @@ const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  
+
+  // Deduplication tracking for task creation events
+  const processedTaskIdsRef = useRef<Set<string>>(new Set());
+
   // Use the global project context instead of local state
   const { currentProject, allProjects } = useProjectContext();
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -65,6 +68,12 @@ const Tasks: React.FC = () => {
           
         case 'task_created':
           if (taskPayload && isProjectMatch(taskPayload)) {
+            // Deduplication: Prevent duplicate task additions from race conditions
+            if (processedTaskIdsRef.current.has(taskPayload.id)) {
+              return; // Already processed this task
+            }
+            processedTaskIdsRef.current.add(taskPayload.id);
+
             setTasks(prev => {
               if (prev.some(task => task.id === taskPayload.id)) {
                 return prev.map(task => (task.id === taskPayload.id ? taskPayload : task));
@@ -209,8 +218,14 @@ const Tasks: React.FC = () => {
         ...taskData,
         project_id: projectId
       });
-      
-      // Task will be added via WebSocket, but add immediately for better UX
+
+      // Mark task as processed for deduplication before WebSocket event arrives
+      if (response.data.task.id) {
+        processedTaskIdsRef.current.add(response.data.task.id);
+      }
+
+      // Add task immediately for optimistic UI update
+      // WebSocket handler will skip this task due to deduplication guard
       if (response.data.task.project_id === projectId) {
         setTasks(prev => [response.data.task, ...prev]);
       }

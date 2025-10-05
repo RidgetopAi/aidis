@@ -12,7 +12,11 @@ export class ContextController {
     try {
       const params: ContextSearchParams = {
         ...(req.query.query && { query: req.query.query as string }),
-        ...(req.projectId && { project_id: req.projectId }),
+        // Oracle Phase 1: Unified project filtering - header takes priority over query param
+        ...(() => {
+          const projectId = req.projectId || (req.query.project_id as string);
+          return projectId ? { project_id: projectId } : {};
+        })(),
         ...(req.query.session_id && { session_id: req.query.session_id as string }),
         ...(req.query.type && { type: req.query.type as string }),
         ...(req.query.tags && { tags: (req.query.tags as string).split(',') }),
@@ -216,7 +220,8 @@ export class ContextController {
    */
   static async getWeeklyVelocity(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const projectId = req.query.project_id as string || req.projectId;
+      // Oracle Phase 1: Unified project filtering - header takes priority over query param
+      const projectId = req.projectId || (req.query.project_id as string);
       const weeklyVelocity = await ContextService.getWeeklyVelocity(projectId);
 
       res.json({
@@ -241,7 +246,11 @@ export class ContextController {
     try {
       const params: ContextSearchParams = {
         ...(req.query.query && { query: req.query.query as string }),
-        ...(req.projectId && { project_id: req.projectId }),
+        // Oracle Phase 1: Unified project filtering - header takes priority over query param
+        ...(() => {
+          const projectId = req.projectId || (req.query.project_id as string);
+          return projectId ? { project_id: projectId } : {};
+        })(),
         ...(req.query.type && { type: req.query.type as string }),
         ...(req.query.tags && { tags: (req.query.tags as string).split(',') }),
         ...(req.query.date_from && { date_from: req.query.date_from as string }),
@@ -299,7 +308,11 @@ export class ContextController {
     try {
       const params: ContextSearchParams = {
         ...req.body,
-        ...(req.projectId && { project_id: req.projectId }), // Override with middleware projectId
+        // Oracle Phase 1: Unified project filtering - header takes priority over query param
+        ...(() => {
+          const projectId = req.projectId || (req.query.project_id as string);
+          return projectId ? { project_id: projectId } : {};
+        })(),
         limit: req.body.limit || 20,
         offset: req.body.offset || 0
       };

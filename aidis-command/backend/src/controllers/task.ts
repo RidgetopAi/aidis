@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../types/auth';
 import { TaskService, CreateTaskRequest, UpdateTaskRequest, TaskFilter } from '../services/task';
 import { webSocketService } from '../services/websocket';
 
@@ -11,12 +12,14 @@ export class TaskController {
   /**
    * GET /tasks - Get all tasks with optional filtering
    */
-  static async getTasks(req: Request, res: Response): Promise<void> {
+  static async getTasks(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const filter: TaskFilter = {};
-      
+
       // Extract query parameters for filtering
-      if (req.query.project_id) filter.project_id = req.query.project_id as string;
+      // Oracle Phase 1: Unified project filtering - header takes priority over query param
+      const projectId = req.projectId || (req.query.project_id as string);
+      if (projectId) filter.project_id = projectId;
       if (req.query.assigned_to) filter.assigned_to = req.query.assigned_to as string;
       if (req.query.status) {
         filter.status = Array.isArray(req.query.status) 
@@ -57,7 +60,7 @@ export class TaskController {
   /**
    * GET /tasks/:id - Get single task by ID
    */
-  static async getTask(req: Request, res: Response): Promise<void> {
+  static async getTask(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const task = await TaskService.getTaskById(id);
@@ -86,7 +89,7 @@ export class TaskController {
   /**
    * POST /tasks - Create new task
    */
-  static async createTask(req: Request, res: Response): Promise<void> {
+  static async createTask(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const taskData: CreateTaskRequest = req.body;
 
@@ -131,7 +134,7 @@ export class TaskController {
   /**
    * PUT /tasks/:id - Update task
    */
-  static async updateTask(req: Request, res: Response): Promise<void> {
+  static async updateTask(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const updates: UpdateTaskRequest = req.body;
@@ -168,7 +171,7 @@ export class TaskController {
   /**
    * DELETE /tasks/:id - Delete task
    */
-  static async deleteTask(req: Request, res: Response): Promise<void> {
+  static async deleteTask(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const success = await TaskService.deleteTask(id);
@@ -203,9 +206,10 @@ export class TaskController {
   /**
    * GET /tasks/stats - Get task statistics
    */
-  static async getTaskStats(req: Request, res: Response): Promise<void> {
+  static async getTaskStats(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const projectId = req.query.project_id as string;
+      // Oracle Phase 1: Unified project filtering - header takes priority over query param
+      const projectId = req.projectId || (req.query.project_id as string);
       const stats = await TaskService.getTaskStats(projectId);
       
       res.json({
@@ -224,9 +228,10 @@ export class TaskController {
   /**
    * GET /tasks/lead-time - Get lead time distribution analytics
    */
-  static async getLeadTimeDistribution(req: Request, res: Response): Promise<void> {
+  static async getLeadTimeDistribution(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const projectId = req.query.project_id as string;
+      // Oracle Phase 1: Unified project filtering - header takes priority over query param
+      const projectId = req.projectId || (req.query.project_id as string);
       const leadTimeData = await TaskService.getLeadTimeDistribution(projectId);
       
       res.json({
@@ -245,7 +250,7 @@ export class TaskController {
   /**
    * GET /tasks/:id/dependencies - Get task dependencies
    */
-  static async getTaskDependencies(req: Request, res: Response): Promise<void> {
+  static async getTaskDependencies(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const dependencies = await TaskService.getTaskDependencies(id);
@@ -266,7 +271,7 @@ export class TaskController {
   /**
    * POST /tasks/bulk-update - Bulk update tasks (for Kanban drag-and-drop)
    */
-  static async bulkUpdateTasks(req: Request, res: Response): Promise<void> {
+  static async bulkUpdateTasks(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { updates } = req.body;
 
@@ -316,7 +321,7 @@ export class TaskController {
   /**
    * POST /tasks/:id/assign - Assign task to agent
    */
-  static async assignTask(req: Request, res: Response): Promise<void> {
+  static async assignTask(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { assigned_to } = req.body;
@@ -361,7 +366,7 @@ export class TaskController {
   /**
    * POST /tasks/:id/status - Update task status with automatic status transitions
    */
-  static async updateTaskStatus(req: Request, res: Response): Promise<void> {
+  static async updateTaskStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
       const { status, note } = req.body;
