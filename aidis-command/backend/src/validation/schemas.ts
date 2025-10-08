@@ -122,7 +122,8 @@ export const UpdateContextSchema = z.object({
   content: requiredString('Content', 10, 10000).optional(),
   tags: tags,
   metadata: z.record(z.string(), z.any()).optional(),
-  relevance_score: z.number().min(0).max(1).optional(),
+  relevance_score: z.number().min(0).max(10).optional(),
+  project_id: z.string().uuid('Invalid project ID').optional(),
 });
 
 export type UpdateContextData = z.infer<typeof UpdateContextSchema>;

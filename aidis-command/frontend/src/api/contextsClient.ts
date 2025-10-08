@@ -99,6 +99,7 @@ export const contextsClient = {
       tags?: string[];
       metadata?: Record<string, unknown>;
       relevance_score?: number;
+      project_id?: string;
     }
   ): Promise<Context> {
     const response = await ContextsService.putContexts({ id, requestBody: updates });

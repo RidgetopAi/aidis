@@ -244,6 +244,7 @@ export class ContextService {
     tags?: string[];
     metadata?: Record<string, any>;
     relevance_score?: number;
+    project_id?: string;
   }): Promise<Context | null> {
     const setClauses: string[] = [];
     const values: any[] = [];
@@ -269,6 +270,11 @@ export class ContextService {
       values.push(updates.relevance_score);
     }
 
+    if (updates.project_id !== undefined) {
+      setClauses.push(`project_id = $${paramIndex++}`);
+      values.push(updates.project_id);
+    }
+
     if (setClauses.length === 0) {
       throw new Error('No updates provided');
     }
@@ -278,10 +284,10 @@ export class ContextService {
 
     try {
       const result = await pool.query(`
-        UPDATE contexts 
+        UPDATE contexts
         SET ${setClauses.join(', ')}
         WHERE id = $${paramIndex}
-        RETURNING 
+        RETURNING
           id, project_id, context_type as type, content, metadata, tags,
           relevance_score, session_id, created_at, created_at as updated_at
       `, values);
